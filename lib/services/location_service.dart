@@ -5,7 +5,9 @@ class LocationService {
   static Future<Position> getCurrentLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      throw Exception('Location services are disabled. Please turn on GPS on your device.');
+      throw Exception(
+        'Location services are disabled. Please turn on GPS on your device.',
+      );
     }
 
     LocationPermission permission = await Geolocator.checkPermission();
@@ -23,7 +25,7 @@ class LocationService {
     }
 
     return await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
     );
   }
 }

@@ -70,7 +70,7 @@ class _PanicButtonState extends State<PanicButton>
   }
 
   Future<void> _checkVibration() async {
-    _hasVibrator = (await Vibration.hasVibrator()) ?? false;
+    _hasVibrator = (await Vibration.hasVibrator());
   }
 
   @override
@@ -128,7 +128,7 @@ class _PanicButtonState extends State<PanicButton>
                   color: progress > 0 ? Colors.red.shade800 : Colors.red.shade600,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.red.withOpacity(0.4),
+                      color: Colors.red.withValues(alpha: 0.4),
                       blurRadius: progress > 0 ? 30 : 15,
                       spreadRadius: progress > 0 ? 8 : 2,
                     ),

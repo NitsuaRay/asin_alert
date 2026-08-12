@@ -71,7 +71,7 @@ class _EstablishmentDashboardScreenState
     if (_tapCount >= 4) {
       _tapCount = 0;
       // Ultra discrete single haptic buzz to confirm trigger without lighting up screen visually
-      if (await Vibration.hasVibrator() ?? false) {
+      if (await Vibration.hasVibrator()) {
         Vibration.vibrate(duration: 80);
       }
 
@@ -318,7 +318,7 @@ class _EstablishmentDashboardScreenState
                 alertId,
                 controller.text.isNotEmpty ? controller.text : 'User cancelled',
               );
-              if (mounted) {
+              if (context.mounted) {
                 Navigator.pop(context);
                 setState(() => _activeAlert = null);
               }
