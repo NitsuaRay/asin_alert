@@ -31,7 +31,9 @@ class AuthGate extends StatelessWidget {
             final profile = profileSnapshot.data;
             final role = profile?['role'] ?? 'establishment';
 
-            if (role == 'police') {
+            if (role == 'admin') {
+              return const AdminDashboardScreen();
+            } else if (role == 'police') {
               return const PoliceDashboardScreen();
             } else {
               return const EstablishmentDashboardScreen();
@@ -51,11 +53,13 @@ class EstablishmentDashboardScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Establishment Panic View'),
+        backgroundColor: const Color(0xFF0D47A1),
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => AuthService().signOut(),
-          )
+          ),
         ],
       ),
       body: const Center(child: Text('Establishment Panic Button Dashboard')),
@@ -70,14 +74,41 @@ class PoliceDashboardScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('PNP Asingan Station Monitor'),
+        backgroundColor: const Color(0xFF0D47A1),
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => AuthService().signOut(),
-          )
+          ),
         ],
       ),
-      body: const Center(child: Text('Police Realtime Incident Stream Dashboard')),
+      body: const Center(
+        child: Text('Police Realtime Incident Stream Dashboard'),
+      ),
+    );
+  }
+}
+
+class AdminDashboardScreen extends StatelessWidget {
+  const AdminDashboardScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('A.S.I.N. System Administration'),
+        backgroundColor: const Color(0xFF0D47A1),
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => AuthService().signOut(),
+          ),
+        ],
+      ),
+      body: const Center(
+        child: Text('Admin Management & Verification Dashboard'),
+      ),
     );
   }
 }

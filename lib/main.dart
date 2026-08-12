@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'screens/auth_gate.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // 1. Load environment variables
   await dotenv.load(fileName: ".env");
 
+  // 2. Initialize Supabase Backend
   await Supabase.initialize(
     url: dotenv.get('SUPABASE_URL'),
     publishableKey: dotenv.get('SUPABASE_PUBLISHABLE_KEY'),
   );
+
+  // 3. Initialize Firebase Cloud Messaging & Core Services
+  await Firebase.initializeApp();
 
   runApp(const AsinAlertApp());
 }

@@ -5,7 +5,7 @@ class AuthService {
 
   User? get currentUser => _supabase.auth.currentUser;
 
-  // 1. Sign Up User (Metadata automatically triggers profile creation in Postgres)
+  // Sign Up User with Badge Number support
   Future<AuthResponse> signUp({
     required String email,
     required String password,
@@ -14,6 +14,7 @@ class AuthService {
     required String phoneNumber,
     required String address,
     required String barangay,
+    String? badgeNumber,
   }) async {
     return await _supabase.auth.signUp(
       email: email,
@@ -24,11 +25,13 @@ class AuthService {
         'phone_number': phoneNumber,
         'address': address,
         'barangay': barangay,
+        if (badgeNumber != null && badgeNumber.isNotEmpty)
+          'badge_number': badgeNumber,
       },
     );
   }
 
-  // 2. Sign In User
+  // Sign In
   Future<AuthResponse> signIn({
     required String email,
     required String password,
@@ -39,12 +42,12 @@ class AuthService {
     );
   }
 
-  // 3. Sign Out
+  // Sign Out
   Future<void> signOut() async {
     await _supabase.auth.signOut();
   }
 
-  // 4. Fetch User Profile & Role
+  // Fetch User Profile
   Future<Map<String, dynamic>?> getUserProfile() async {
     final user = currentUser;
     if (user == null) return null;
