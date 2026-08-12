@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'package:asin_alert/screens/emergency_service.dart';
+import 'package:asin_alert/services/auth_service.dart';
+import 'package:asin_alert/services/notification_service.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:vibration/vibration.dart';
 import '../widgets/panic_button.dart';
 
@@ -17,6 +21,9 @@ class _EstablishmentDashboardScreenState
   Map<String, dynamic>? _activeAlert;
   bool _isLoading = true;
 
+  // Realtime Channel for listening to police updates on the active alert
+  RealtimeChannel? _statusSubscription;
+
   // Silent Alarm Gesture Tracking (Multi-tap detector)
   int _tapCount = 0;
   Timer? _tapTimer;
@@ -25,11 +32,83 @@ class _EstablishmentDashboardScreenState
   void initState() {
     super.initState();
     _checkActiveAlert();
+    _saveFcmToken(); // Save token so webhook can notify this store
+  }
+
+  Future<void> _saveFcmToken() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+
+      final settings = await FirebaseMessaging.instance.requestPermission();
+
+      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+        String? token = await FirebaseMessaging.instance.getToken();
+
+        if (token != null) {
+          await Supabase.instance.client
+              .from('profiles')
+              .update({'fcm_token': token})
+              .eq('id', user.id);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error saving establishment FCM token: $e');
+    }
+  }
+
+  /// Start listening for status changes on a specific emergency alert
+  void _listenForPoliceResponse(String emergencyId) {
+    // Unsubscribe from any existing channel first
+    _statusSubscription?.unsubscribe();
+
+    _statusSubscription = Supabase.instance.client
+        .channel('public:emergencies:$emergencyId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'emergencies',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: emergencyId,
+          ),
+          callback: (payload) async {
+            final updatedRecord = payload.newRecord;
+            final status = updatedRecord['status'];
+
+            String title = 'ASIN Alert Update';
+            String body = 'Your alert status has been updated to $status.';
+
+            if (status == 'acknowledged') {
+              title = '👮 Alert Acknowledged';
+              body = 'PNP Responders have acknowledged your panic alert!';
+            } else if (status == 'en_route') {
+              title = '🚔 Responders En Route!';
+              body = 'Police officers are currently heading to your location!';
+            } else if (status == 'resolved') {
+              title = '✅ Emergency Resolved';
+              body = 'The incident has been marked as resolved.';
+            }
+
+            // Trigger phone siren/notification
+            await NotificationService.showSirenNotification(
+              RemoteMessage(
+                notification: RemoteNotification(
+                  title: title,
+                  body: body,
+                ),
+              ),
+            );
+          },
+        )
+        .subscribe();
   }
 
   @override
   void dispose() {
     _tapTimer?.cancel();
+    _statusSubscription?.unsubscribe(); // Prevent channel memory leak
     super.dispose();
   }
 
@@ -41,6 +120,9 @@ class _EstablishmentDashboardScreenState
           _activeAlert = alert;
           _isLoading = false;
         });
+        if (alert != null) {
+          _listenForPoliceResponse(alert['id']);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -57,6 +139,7 @@ class _EstablishmentDashboardScreenState
     );
     if (mounted) {
       setState(() => _activeAlert = alert);
+      _listenForPoliceResponse(alert['id']);
     }
   }
 
@@ -82,6 +165,8 @@ class _EstablishmentDashboardScreenState
 
       if (mounted) {
         setState(() => _activeAlert = alert);
+        _listenForPoliceResponse(alert['id']);
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Silent emergency broadcast sent quietly.'),
@@ -107,6 +192,15 @@ class _EstablishmentDashboardScreenState
             ],
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
+            onPressed: () async {
+              await AuthService().signOut();
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -155,7 +249,10 @@ class _EstablishmentDashboardScreenState
                     Expanded(
                       child: Text(
                         'Tip: Tap the app title bar 4 times quickly for a Silent Alarm trigger.',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade800),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade800,
+                        ),
                       ),
                     ),
                   ],
@@ -178,7 +275,10 @@ class _EstablishmentDashboardScreenState
 
         if (status == 'resolved' || status == 'cancelled') {
           Future.microtask(() {
-            if (mounted) setState(() => _activeAlert = null);
+            if (mounted) {
+              _statusSubscription?.unsubscribe();
+              setState(() => _activeAlert = null);
+            }
           });
         }
 
@@ -267,9 +367,21 @@ class _EstablishmentDashboardScreenState
     return Column(
       children: [
         _buildTimelineTile('Alert Sent to Police', true, currentIndex >= 0),
-        _buildTimelineTile('Police Acknowledged', currentIndex >= 1, currentIndex >= 1),
-        _buildTimelineTile('Responders En Route', currentIndex >= 2, currentIndex >= 2),
-        _buildTimelineTile('Incident Resolved', currentIndex >= 3, currentIndex >= 3),
+        _buildTimelineTile(
+          'Police Acknowledged',
+          currentIndex >= 1,
+          currentIndex >= 1,
+        ),
+        _buildTimelineTile(
+          'Responders En Route',
+          currentIndex >= 2,
+          currentIndex >= 2,
+        ),
+        _buildTimelineTile(
+          'Incident Resolved',
+          currentIndex >= 3,
+          currentIndex >= 3,
+        ),
       ],
     );
   }
@@ -297,7 +409,7 @@ class _EstablishmentDashboardScreenState
 
   Future<void> _showCancelDialog(String alertId) async {
     final controller = TextEditingController();
-    return showDialog(
+    await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Cancel Emergency Alert?'),
@@ -320,14 +432,19 @@ class _EstablishmentDashboardScreenState
               );
               if (context.mounted) {
                 Navigator.pop(context);
+                _statusSubscription?.unsubscribe();
                 setState(() => _activeAlert = null);
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('CANCEL ALERT', style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'CANCEL ALERT',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
     );
+    controller.dispose(); // Prevents memory leak
   }
 }

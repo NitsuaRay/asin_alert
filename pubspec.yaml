@@ -43,6 +43,8 @@ dependencies:
   firebase_messaging: ^16.5.0
   permission_handler: ^13.0.1
   vibration: ^3.1.8
+  url_launcher: ^6.3.2
+  audioplayers: ^6.7.1
 
 dev_dependencies:
   flutter_test:
@@ -69,7 +71,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/
-    # - images/a_dot_ham.jpeg
+    - assets/audio/siren.mp3
     - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see
@@ -97,3 +99,5 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+dependency_overrides:
+  permission_handler_android: 13.0.1

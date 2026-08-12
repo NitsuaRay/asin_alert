@@ -1,3 +1,4 @@
+import 'package:asin_alert/services/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -18,6 +19,7 @@ void main() async {
 
   // 3. Initialize Firebase Cloud Messaging & Core Services
   await Firebase.initializeApp();
+  await NotificationService.initialize();
 
   runApp(const AsinAlertApp());
 }

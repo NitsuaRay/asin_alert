@@ -1,7 +1,9 @@
+import 'package:asin_alert/screens/police_dashboard_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
+import 'establishment_dashboard_screen.dart'; // Import actual establishment screen
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -36,7 +38,7 @@ class AuthGate extends StatelessWidget {
             } else if (role == 'police') {
               return const PoliceDashboardScreen();
             } else {
-              return const EstablishmentDashboardScreen();
+              return const EstablishmentDashboardScreen(); // Linked active screen
             }
           },
         );
@@ -45,50 +47,8 @@ class AuthGate extends StatelessWidget {
   }
 }
 
-// Temporary Placeholder screens until built
-class EstablishmentDashboardScreen extends StatelessWidget {
-  const EstablishmentDashboardScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Establishment Panic View'),
-        backgroundColor: const Color(0xFF0D47A1),
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => AuthService().signOut(),
-          ),
-        ],
-      ),
-      body: const Center(child: Text('Establishment Panic Button Dashboard')),
-    );
-  }
-}
+// Temporary Placeholder screens until built in next phases
 
-class PoliceDashboardScreen extends StatelessWidget {
-  const PoliceDashboardScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('PNP Asingan Station Monitor'),
-        backgroundColor: const Color(0xFF0D47A1),
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => AuthService().signOut(),
-          ),
-        ],
-      ),
-      body: const Center(
-        child: Text('Police Realtime Incident Stream Dashboard'),
-      ),
-    );
-  }
-}
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
