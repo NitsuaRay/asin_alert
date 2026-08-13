@@ -1,17 +1,21 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
-import * as jose from "npm:jose@5";
+import * as jose from "https://deno.land/x/jose@v4.14.4/index.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 // Helper function to get Google OAuth2 Access Token for FCM HTTP v1 API
 async function getAccessToken(serviceAccount: any): Promise<string> {
-  // Fix escaped newlines in private key if set via Supabase Secrets CLI/UI
   const formattedPrivateKey = serviceAccount.private_key.replace(/\\n/g, "\n");
 
-  // Import the RSA private key from Firebase Service Account
   const privateKey = await jose.importPKCS8(formattedPrivateKey, "RS256");
 
-  // Generate OAuth2 Assertion JWT
-  const jwt = await new jose.SignJWT({})
+  // Generate OAuth2 Assertion JWT with FCM Scope
+  const jwt = await new jose.SignJWT({
+    scope: "https://www.googleapis.com/auth/firebase.messaging",
+  })
     .setProtectedHeader({ alg: "RS256", typ: "JWT" })
     .setIssuer(serviceAccount.client_email)
     .setSubject(serviceAccount.client_email)
@@ -38,134 +42,113 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight request
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   try {
     const payload = await req.json();
-    const record = payload.record; // Newly inserted emergency row
+    const record = payload.record || payload.new || {};
 
-    if (!record) {
-      return new Response(JSON.stringify({ error: "No record found in payload" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    // Parse Firebase Service Account Key stored in Supabase Secret
+    // 1. Fetch FIREBASE_SERVICE_ACCOUNT secret
     const serviceAccountRaw = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
     if (!serviceAccountRaw) {
       throw new Error("FIREBASE_SERVICE_ACCOUNT secret is missing");
     }
+
     const serviceAccount = JSON.parse(serviceAccountRaw);
-
-    // 1. Initialize Supabase Admin Client
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
-
-    // 2. Fetch establishment business profile details
-    const { data: establishment } = await supabaseAdmin
-      .from("profiles")
-      .select("full_name, address, barangay, phone_number")
-      .eq("id", record.establishment_id)
-      .single();
-
-    const businessName = establishment?.full_name || "Establishment";
-    const address = establishment?.address || "Asingan";
-    const isSilent = record.notes?.includes("SILENT") ?? false;
-
-    // 3. Fetch all active Police Officer FCM tokens from responder_tokens
-    const { data: tokens, error: tokenError } = await supabaseAdmin
-      .from("responder_tokens")
-      .select("fcm_token");
-
-    if (tokenError || !tokens || tokens.length === 0) {
-      console.log("No active police responder tokens found in DB.");
-      return new Response(
-        JSON.stringify({ message: "No active police tokens found." }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    const fcmTokens = tokens.map((t) => t.fcm_token).filter(Boolean);
-
-    // 4. Get FCM OAuth2 Access Token
     const accessToken = await getAccessToken(serviceAccount);
 
-    // 5. Send High-Priority FCM Push Notification to all police responders
-    const notificationPromises = fcmTokens.map(async (fcmToken) => {
-      const title = isSilent
-        ? `🤫 SILENT PANIC ALARM: ${businessName}`
-        : `🚨 EMERGENCY ALERT: ${record.category.toUpperCase()}`;
+    // 2. Fetch active responder tokens from database
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-      const body = `${businessName} in ${address} has triggered an urgent alert!`;
-
-      const fcmPayload = {
-        message: {
-          token: fcmToken,
-          notification: {
-            title: title,
-            body: body,
-          },
-          data: {
-            emergency_id: String(record.id),
-            category: String(record.category),
-            latitude: String(record.latitude),
-            longitude: String(record.longitude),
-            is_silent: String(isSilent),
-            click_action: "FLUTTER_NOTIFICATION_CLICK",
-          },
-          android: {
-            priority: "HIGH", // Forces Android to wake device and show heads-up banner
-            notification: {
-              channel_id: "siren_channel", // Must match AndroidNotificationChannel in Flutter
-              sound: "siren", // References android/app/src/main/res/raw/siren.mp3
-              priority: "MAX",
-              visibility: "PUBLIC",
-            },
-          },
-          apns: {
-            payload: {
-              aps: {
-                alert: { title, body },
-                sound: "siren.caf",
-                "content-available": 1,
-              },
-            },
-          },
-        },
-      };
-
-      try {
-        const response = await fetch(
-          `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(fcmPayload),
-          }
-        );
-        const resData = await response.json();
-        return { success: response.ok, resData };
-      } catch (err) {
-        console.error(`Error sending push to token ${fcmToken}:`, err);
-        return { success: false, error: err };
-      }
+    const tokensRes = await fetch(`${supabaseUrl}/rest/v1/responder_tokens?select=fcm_token`, {
+      headers: {
+        "apikey": supabaseServiceKey!,
+        "Authorization": `Bearer ${supabaseServiceKey}`,
+      },
     });
 
-    const results = await Promise.all(notificationPromises);
+    const tokenRows = await tokensRes.json();
+    if (!Array.isArray(tokenRows) || tokenRows.length === 0) {
+      return new Response(JSON.stringify({ message: "No responder tokens found" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
 
-    return new Response(
-      JSON.stringify({ success: true, count: fcmTokens.length, results }),
-      { headers: { "Content-Type": "application/json" } }
-    );
-  } catch (error: any) {
-    console.error("Edge Function Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
+    // 3. Format Notification Title & Message based on status
+    const category = record?.category?.toUpperCase() || "POLICE";
+    const status = record?.status || "pending";
+
+    let title = "🚨 EMERGENCY PANIC ALERT!";
+    let body = `New ${category} alert triggered! Tap to inspect.`;
+
+    if (status === "acknowledged") {
+      title = "👮 Alert Acknowledged";
+      body = "Responders acknowledged the emergency alert!";
+    } else if (status === "en_route") {
+      title = "🚔 Officers En Route";
+      body = "A police unit is now heading to the scene!";
+    } else if (status === "resolved") {
+      title = "✅ Emergency Resolved";
+      body = "The incident has been marked as resolved.";
+    }
+
+    // 4. Send FCM Push Notification to all active responder phones
+    const sendPromises = tokenRows.map(async (row: { fcm_token: string }) => {
+      return fetch(
+        `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: {
+              token: row.fcm_token,
+              notification: {
+                title: title,
+                body: body,
+              },
+              android: {
+                priority: "high",
+                notification: {
+                  channel_id: "siren_channel_v3",
+                  sound: "siren",
+                },
+              },
+              apns: {
+                payload: {
+                  aps: {
+                    sound: "siren.aiff",
+                    contentAvailable: true,
+                  },
+                },
+              },
+              data: {
+                emergency_id: String(record?.id || ""),
+                status: status,
+              },
+            },
+          }),
+        }
+      );
+    });
+
+    await Promise.all(sendPromises);
+
+    return new Response(JSON.stringify({ success: true, count: tokenRows.length }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+    });
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400,
     });
   }
 });
