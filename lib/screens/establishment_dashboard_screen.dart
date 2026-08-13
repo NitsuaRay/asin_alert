@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:asin_alert/screens/emergency_service.dart';
+import 'package:asin_alert/services/emergency_service.dart';
 import 'package:asin_alert/services/auth_service.dart';
 import 'package:asin_alert/services/notification_service.dart';
 import 'package:asin_alert/widgets/establishment/cancel_alert_sheet.dart';
@@ -9,7 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:vibration/vibration.dart';
 
 import '../widgets/establishment/live_status_tracker.dart';
-import '../widgets/establishment/panic_trigger_view.dart';
+import '../services/panic_trigger_view.dart';
 
 class EstablishmentDashboardScreen extends StatefulWidget {
   const EstablishmentDashboardScreen({super.key});
@@ -62,7 +62,6 @@ class _EstablishmentDashboardScreenState
 
   /// Start listening for status changes on a specific emergency alert
   void _listenForPoliceResponse(String emergencyId) {
-    // Unsubscribe from any existing channel first
     _statusSubscription?.unsubscribe();
 
     _statusSubscription = Supabase.instance.client
@@ -79,27 +78,43 @@ class _EstablishmentDashboardScreenState
           callback: (payload) async {
             final updatedRecord = payload.newRecord;
             final status = updatedRecord['status'];
+            final isSilent =
+                updatedRecord['is_silent'] == true ||
+                updatedRecord['is_silent'] == 'true';
 
             String title = 'ASIN Alert Update';
             String body = 'Your alert status has been updated to $status.';
 
             if (status == 'acknowledged') {
-              title = '👮 Alert Acknowledged';
+              title = isSilent
+                  ? '🤫 Alert Acknowledged'
+                  : '👮 Alert Acknowledged';
               body = 'PNP Responders have acknowledged your panic alert!';
             } else if (status == 'en_route') {
-              title = '🚔 Responders En Route!';
+              title = isSilent
+                  ? '🤫 Responders En Route'
+                  : '🚔 Responders En Route!';
               body = 'Police officers are currently heading to your location!';
             } else if (status == 'resolved') {
               title = '✅ Emergency Resolved';
               body = 'The incident has been marked as resolved.';
             }
 
-            // Trigger phone siren/notification
-            await NotificationService.showSirenNotification(
-              RemoteMessage(
-                notification: RemoteNotification(title: title, body: body),
-              ),
+            final message = RemoteMessage(
+              notification: RemoteNotification(title: title, body: body),
+              data: {
+                'title': title,
+                'body': body,
+                'is_silent': isSilent.toString(), // Fixed here
+              },
             );
+
+            // Routely trigger soundless banner if silent, else play siren
+            if (isSilent) {
+              await NotificationService.showSilentNotification(message);
+            } else {
+              await NotificationService.showSirenNotification(message);
+            }
           },
         )
         .subscribe();

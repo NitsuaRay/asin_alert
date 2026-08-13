@@ -25,6 +25,7 @@ class EmergencyService {
       'status': 'pending',
       'latitude': position.latitude,
       'longitude': position.longitude,
+      'is_silent': isSilent, // 👈 CRITICAL FIX: Pass the isSilent flag to database!
       'notes': isSilent ? 'SILENT ALARM TRIGGERED' : notes,
     }).select().single();
 

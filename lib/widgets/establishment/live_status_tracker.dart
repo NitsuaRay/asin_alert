@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../screens/emergency_service.dart';
+import '../../services/emergency_service.dart';
 import 'status_header_card.dart';
 import 'status_timeline.dart';
 

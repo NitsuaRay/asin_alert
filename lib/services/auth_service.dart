@@ -1,3 +1,4 @@
+import 'package:asin_alert/services/EmergencyAlarmService.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService {
@@ -44,6 +45,7 @@ class AuthService {
 
   // Sign Out
   Future<void> signOut() async {
+    await EmergencyAlarmService.stopAlarm();
     await _supabase.auth.signOut();
   }
 

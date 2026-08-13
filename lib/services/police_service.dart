@@ -98,10 +98,10 @@ class PoliceService {
       } else if (await canLaunchUrl(geoUri)) {
         await launchUrl(geoUri);
       } else {
-        print('Could not open map application.');
+        debugPrint('Could not open map application.');
       }
     } catch (e) {
-      print('Error launching map: $e');
+      debugPrint('Error launching map: $e');
     }
   }
 }

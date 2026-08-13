@@ -1,4 +1,5 @@
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/material.dart';
 import 'package:vibration/vibration.dart';
 
 class EmergencyAlarmService {
@@ -23,7 +24,7 @@ class EmergencyAlarmService {
         );
       }
     } catch (e) {
-      print('Error starting emergency alarm: $e');
+      debugPrint('Error starting emergency alarm: $e');
     }
   }
 
@@ -36,7 +37,7 @@ class EmergencyAlarmService {
       await _audioPlayer.stop();
       await Vibration.cancel();
     } catch (e) {
-      print('Error stopping emergency alarm: $e');
+      debugPrint('Error stopping emergency alarm: $e');
     }
   }
 }

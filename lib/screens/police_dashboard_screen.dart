@@ -22,21 +22,21 @@ class _PoliceDashboardScreenState extends State<PoliceDashboardScreen> {
     super.initState();
     PoliceService.registerResponderToken();
     _listenForIncomingEmergencies();
+    EmergencyAlarmService.stopAlarm();
   }
 
   void _listenForIncomingEmergencies() {
     _emergencySubscription = Supabase.instance.client
         .channel('public:emergencies')
         .onPostgresChanges(
-          event: PostgresChangeEvent
-              .all, // 👈 Listens to INSERT, UPDATE, and DELETE
+          event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'emergencies',
           callback: (payload) async {
             final newRecord = payload.newRecord;
             final eventType = payload.eventType;
 
-            // 1. New Emergency Alert Inserted
+            // 1. New Emergency Alert Inserted (Pending)
             if (eventType == PostgresChangeEvent.insert) {
               await NotificationService.showSirenNotification(
                 RemoteMessage(
@@ -50,7 +50,7 @@ class _PoliceDashboardScreenState extends State<PoliceDashboardScreen> {
 
               await EmergencyAlarmService.startAlarm();
             }
-            // 2. Existing Emergency Status Updated (Acknowledged / En Route / Resolved)
+            // 2. Emergency Status Updated
             else if (eventType == PostgresChangeEvent.update) {
               final status = newRecord['status'] ?? 'updated';
 
@@ -60,12 +60,20 @@ class _PoliceDashboardScreenState extends State<PoliceDashboardScreen> {
               if (status == 'acknowledged') {
                 title = '👮 Alert Acknowledged';
                 body = 'Responders acknowledged the emergency alert!';
+                await EmergencyAlarmService.stopAlarm();
               } else if (status == 'en_route') {
                 title = '🚔 Officers En Route';
                 body = 'A police unit is now heading to the scene!';
+                await EmergencyAlarmService.stopAlarm();
               } else if (status == 'resolved') {
                 title = '✅ Emergency Resolved';
                 body = 'The incident has been marked as resolved.';
+                await EmergencyAlarmService.stopAlarm();
+              } else if (status == 'cancelled') {
+                // 👈 ADD THIS CASE
+                title = '❌ Alert Cancelled';
+                body = 'The establishment cancelled the emergency alert.';
+                await EmergencyAlarmService.stopAlarm(); // 🛑 Stops police alarm instantly
               }
 
               await NotificationService.showSirenNotification(
@@ -112,9 +120,11 @@ class _PoliceDashboardScreenState extends State<PoliceDashboardScreen> {
 
           final emergencies = snapshot.data ?? [];
 
-          final hasPendingAlerts = emergencies.any(
-            (e) => (e['status'] ?? 'pending') == 'pending',
-          );
+          // 🚨 Alarm only rings while there is a PENDING alert
+          final hasPendingAlerts = emergencies.any((e) {
+            final status = e['status'] ?? 'pending';
+            return status == 'pending';
+          });
 
           if (!hasPendingAlerts) {
             EmergencyAlarmService.stopAlarm();
