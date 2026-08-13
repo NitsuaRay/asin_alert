@@ -55,14 +55,28 @@ class PoliceService {
   }
 
   /// 4. Open External Google Maps / Waze Navigation
-  static Future<void> openMapDirections(double lat, double lng) async {
-    final googleMapsUrl = Uri.parse(
-        'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving');
+  static Future<void> openMapDirections(double latitude, double longitude) async {
+    // Universal Google Maps navigation URL (driving mode)
+    final Uri googleMapsUri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&destination=$latitude,$longitude&travelmode=driving',
+    );
 
-    if (await canLaunchUrl(googleMapsUrl)) {
-      await launchUrl(googleMapsUrl, mode: LaunchMode.externalApplication);
-    } else {
-      throw Exception('Could not launch maps application.');
+    // Alternative fallback geo scheme
+    final Uri geoUri = Uri.parse('geo:$latitude,$longitude?q=$latitude,$longitude');
+
+    try {
+      if (await canLaunchUrl(googleMapsUri)) {
+        await launchUrl(
+          googleMapsUri,
+          mode: LaunchMode.externalApplication,
+        );
+      } else if (await canLaunchUrl(geoUri)) {
+        await launchUrl(geoUri);
+      } else {
+        print('Could not open map application.');
+      }
+    } catch (e) {
+      print('Error launching map: $e');
     }
   }
 }

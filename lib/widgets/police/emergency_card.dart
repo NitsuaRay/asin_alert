@@ -2,14 +2,10 @@ import 'package:asin_alert/services/EmergencyAlarmService.dart';
 import 'package:asin_alert/services/police_service.dart';
 import 'package:flutter/material.dart';
 
-
 class EmergencyCard extends StatelessWidget {
   final Map<String, dynamic> alert;
 
-  const EmergencyCard({
-    super.key,
-    required this.alert,
-  });
+  const EmergencyCard({super.key, required this.alert});
 
   @override
   Widget build(BuildContext context) {
@@ -36,8 +32,10 @@ class EmergencyCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: statusColor,
                     borderRadius: BorderRadius.circular(20),
@@ -53,8 +51,10 @@ class EmergencyCard extends StatelessWidget {
                 ),
                 if (isSilent)
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.purple.shade100,
                       borderRadius: BorderRadius.circular(6),
@@ -79,8 +79,7 @@ class EmergencyCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'Category: ${alert['category'].toString().toUpperCase()}',
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
@@ -89,24 +88,24 @@ class EmergencyCard extends StatelessWidget {
             ),
             if (notes.isNotEmpty && !isSilent) ...[
               const SizedBox(height: 8),
-              Text('Notes: $notes',
-                  style: const TextStyle(fontStyle: FontStyle.italic)),
+              Text(
+                'Notes: $notes',
+                style: const TextStyle(fontStyle: FontStyle.italic),
+              ),
             ],
             const Divider(height: 24),
+            // Inside EmergencyCard Row actions:
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () =>
-                        PoliceService.openMapDirections(lat, lng),
+                    onPressed: () => PoliceService.openMapDirections(lat, lng),
                     icon: const Icon(Icons.directions),
                     label: const Text('MAPS'),
                   ),
                 ),
                 const SizedBox(width: 8),
-                Expanded(
-                  child: _buildActionButton(alert['id'], status),
-                ),
+                Expanded(child: _buildActionButton(alert['id'], status)),
               ],
             ),
           ],
@@ -122,10 +121,13 @@ class EmergencyCard extends StatelessWidget {
           await EmergencyAlarmService.stopAlarm();
           await PoliceService.updateStatus(alertId, 'acknowledged');
         },
-        style:
-            ElevatedButton.styleFrom(backgroundColor: Colors.orange.shade800),
-        child: const Text('ACKNOWLEDGE',
-            style: TextStyle(color: Colors.white, fontSize: 11)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.orange.shade800,
+        ),
+        child: const Text(
+          'ACKNOWLEDGE',
+          style: TextStyle(color: Colors.white, fontSize: 11),
+        ),
       );
     } else if (currentStatus == 'acknowledged') {
       return ElevatedButton(
@@ -134,8 +136,10 @@ class EmergencyCard extends StatelessWidget {
           await PoliceService.updateStatus(alertId, 'en_route');
         },
         style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade800),
-        child: const Text('EN ROUTE',
-            style: TextStyle(color: Colors.white, fontSize: 11)),
+        child: const Text(
+          'EN ROUTE',
+          style: TextStyle(color: Colors.white, fontSize: 11),
+        ),
       );
     } else {
       return ElevatedButton(
@@ -143,10 +147,11 @@ class EmergencyCard extends StatelessWidget {
           await EmergencyAlarmService.stopAlarm();
           await PoliceService.updateStatus(alertId, 'resolved');
         },
-        style:
-            ElevatedButton.styleFrom(backgroundColor: Colors.green.shade700),
-        child: const Text('RESOLVE',
-            style: TextStyle(color: Colors.white, fontSize: 11)),
+        style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade700),
+        child: const Text(
+          'RESOLVE',
+          style: TextStyle(color: Colors.white, fontSize: 11),
+        ),
       );
     }
   }

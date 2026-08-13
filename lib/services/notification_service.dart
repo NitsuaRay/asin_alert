@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:asin_alert/services/EmergencyAlarmService.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 /// Top-level background message handler for FCM
@@ -16,7 +17,12 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   // Explicit urgent vibration pattern: [delay, vibrate, pause, vibrate]
-  static final Int64List _vibrationPattern = Int64List.fromList([0, 1000, 500, 1000]);
+  static final Int64List _vibrationPattern = Int64List.fromList([
+    0,
+    1000,
+    500,
+    1000,
+  ]);
 
   // Bumped channel ID to force Android to apply the vibration pattern
   static final AndroidNotificationChannel _sirenChannel =
@@ -27,14 +33,35 @@ class NotificationService {
             'High-priority emergency alerts for PNP police responders.',
         importance: Importance.max,
         playSound: true,
-        sound: const RawResourceAndroidNotificationSound('siren'), // Points to res/raw/siren.mp3
+        sound: const RawResourceAndroidNotificationSound(
+          'siren',
+        ), // Points to res/raw/siren.mp3
         enableVibration: true,
         vibrationPattern: _vibrationPattern,
       );
 
   /// Initialize Local Notifications & FCM Message Handlers
   static Future<void> initialize() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    NotificationSettings
+    settings = await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      criticalAlert:
+          true, // Crucial for overriding silent/DND modes on iOS for emergency sirens
+    );
+
+    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+      debugPrint('User granted notification permissions');
+    } else if (settings.authorizationStatus ==
+        AuthorizationStatus.provisional) {
+      debugPrint('User granted provisional notification permissions');
+    } else {
+      debugPrint('User declined or has not accepted notification permissions');
+    }
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const iosSettings = DarwinInitializationSettings();
 
     const initSettings = InitializationSettings(
