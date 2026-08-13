@@ -1,4 +1,4 @@
-import 'package:asin_alert/services/EmergencyAlarmService.dart';
+import 'package:asin_alert/services/emergency_alarm_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService {

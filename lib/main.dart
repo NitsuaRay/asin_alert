@@ -1,4 +1,4 @@
-import 'package:asin_alert/services/EmergencyAlarmService.dart';
+import 'package:asin_alert/services/emergency_alarm_service.dart';
 import 'package:asin_alert/services/notification_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';

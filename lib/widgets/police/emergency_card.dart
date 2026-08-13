@@ -1,4 +1,4 @@
-import 'package:asin_alert/services/EmergencyAlarmService.dart';
+import 'package:asin_alert/services/emergency_alarm_service.dart';
 import 'package:asin_alert/services/police_service.dart';
 import 'package:flutter/material.dart';
 
