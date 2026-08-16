@@ -11,8 +11,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
 
-  final bool isSilent = message.data['is_silent'] == 'true' ||
-      message.data['is_silent'] == true;
+  final bool isSilent =
+      message.data['is_silent'] == 'true' || message.data['is_silent'] == true;
 
   final currentUser = Supabase.instance.client.auth.currentUser;
   if (currentUser != null) {
@@ -38,19 +38,20 @@ class NotificationService {
   // 🔊 Loud Siren Channel
   static final AndroidNotificationChannel _sirenChannel =
       AndroidNotificationChannel(
-    'siren_channel_v3',
-    'Emergency Siren Alerts',
-    description: 'High-priority emergency alerts for PNP police responders.',
-    importance: Importance.max,
-    playSound: true,
-    sound: const RawResourceAndroidNotificationSound('siren'),
-    enableVibration: true,
-    vibrationPattern: _vibrationPattern,
-  );
+        'siren_channel_v3',
+        'Emergency Siren Alerts',
+        description:
+            'High-priority emergency alerts for PNP police responders.',
+        importance: Importance.max,
+        playSound: true,
+        sound: const RawResourceAndroidNotificationSound('siren'),
+        enableVibration: true,
+        vibrationPattern: _vibrationPattern,
+      );
 
   // 🤫 Soundless Channel (Visual Banner Only)
-  static final AndroidNotificationChannel _silentChannel =
-      AndroidNotificationChannel(
+  static final AndroidNotificationChannel
+  _silentChannel = AndroidNotificationChannel(
     'silent_alert_channel_v2', // Bumped ID to force Android to apply new soundless rules
     'Silent Panic Alerts',
     description: 'Discreet emergency alerts without audio or siren.',
@@ -61,18 +62,21 @@ class NotificationService {
 
   /// Initialize Local Notifications & FCM Message Handlers
   static Future<void> initialize() async {
-    NotificationSettings settings = await FirebaseMessaging.instance.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-      criticalAlert: true,
-    );
+    NotificationSettings settings = await FirebaseMessaging.instance
+        .requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+          criticalAlert: true,
+        );
 
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
       debugPrint('User granted notification permissions');
     }
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const iosSettings = DarwinInitializationSettings();
 
     const initSettings = InitializationSettings(
@@ -99,8 +103,18 @@ class NotificationService {
       final currentUser = Supabase.instance.client.auth.currentUser;
       if (currentUser == null) return;
 
-      final bool isSilent = message.data['is_silent'] == 'true' ||
+      final bool isSilent =
+          message.data['is_silent'] == 'true' ||
           message.data['is_silent'] == true;
+
+      // 🔍 Extract emergency status from message payload
+      final String status = (message.data['status'] ?? '')
+          .toString()
+          .toLowerCase();
+      final bool isAudioStatus =
+          status == 'acknowledged' ||
+          status == 'en_route' ||
+          status == 'enroute';
 
       try {
         final profileResponse = await Supabase.instance.client
@@ -117,9 +131,12 @@ class NotificationService {
             // Display soundless banner, DO NOT start continuous EmergencyAlarmService audio
             await showSilentNotification(message);
           } else {
-            // Loud alert
-            await showSirenNotification(message, playSound: false);
-            await EmergencyAlarmService.startAlarm();
+            // 🔊 Only play sound if status is 'acknowledged' or 'en_route'
+            await showSirenNotification(message, playSound: isAudioStatus);
+
+            if (isAudioStatus) {
+              await EmergencyAlarmService.startAlarm();
+            }
           }
         } else {
           // Establishment side
@@ -134,7 +151,7 @@ class NotificationService {
         if (isSilent) {
           await showSilentNotification(message);
         } else {
-          await showSirenNotification(message);
+          await showSirenNotification(message, playSound: isAudioStatus);
         }
       }
     });
@@ -143,12 +160,29 @@ class NotificationService {
   /// Displays the High-Priority Siren Banner
   static Future<void> showSirenNotification(
     RemoteMessage message, {
-    bool playSound = true,
+    bool? playSound, // Optional explicit override
   }) async {
     final notification = message.notification;
-    final title = notification?.title ?? '🚨 EMERGENCY PANIC ALERT';
+    final title =
+        notification?.title ??
+        message.data['title'] ??
+        '🚨 EMERGENCY PANIC ALERT';
     final body =
-        notification?.body ?? 'An establishment has triggered an urgent alert!';
+        notification?.body ??
+        message.data['body'] ??
+        'An establishment has triggered an urgent alert!';
+
+    // Extract status from message payload
+    final String status = (message.data['status'] ?? '')
+        .toString()
+        .toLowerCase();
+
+    // 🔊 Only play sound if explicitly passed or if status is acknowledged / en_route
+    final bool shouldPlaySound =
+        playSound ??
+        (status == 'acknowledged' ||
+            status == 'en_route' ||
+            status == 'enroute');
 
     final androidDetails = AndroidNotificationDetails(
       'siren_channel_v3',
@@ -158,8 +192,8 @@ class NotificationService {
       importance: Importance.max,
       priority: Priority.max,
       fullScreenIntent: true,
-      playSound: playSound,
-      sound: playSound
+      playSound: shouldPlaySound,
+      sound: shouldPlaySound
           ? const RawResourceAndroidNotificationSound('siren')
           : null,
       enableVibration: true,
@@ -171,10 +205,10 @@ class NotificationService {
     final notificationDetails = NotificationDetails(
       android: androidDetails,
       iOS: DarwinNotificationDetails(
-        presentSound: playSound,
+        presentSound: shouldPlaySound,
         presentAlert: true,
         presentBadge: true,
-        sound: playSound ? 'siren.aiff' : null,
+        sound: shouldPlaySound ? 'siren.aiff' : null,
       ),
     );
 
@@ -189,9 +223,14 @@ class NotificationService {
   /// Displays a Soundless Notification Banner
   static Future<void> showSilentNotification(RemoteMessage message) async {
     final notification = message.notification;
-    final title = notification?.title ?? message.data['title'] ?? '🤫 SILENT EMERGENCY ALERT';
+    final title =
+        notification?.title ??
+        message.data['title'] ??
+        '🤫 SILENT EMERGENCY ALERT';
     final body =
-        notification?.body ?? message.data['body'] ?? 'A silent panic alert was triggered discretely.';
+        notification?.body ??
+        message.data['body'] ??
+        'A silent panic alert was triggered discretely.';
 
     const androidDetails = AndroidNotificationDetails(
       'silent_alert_channel_v2',
