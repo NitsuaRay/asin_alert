@@ -40,8 +40,10 @@ class LiveStatusTracker extends StatelessWidget {
 
         return SafeArea(
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 20.0,
+              vertical: 16.0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -81,8 +83,11 @@ class LiveStatusTracker extends StatelessWidget {
                 // 🛑 Emergency Cancel Action Button
                 ElevatedButton.icon(
                   onPressed: () => onCancelPressed(alert['id']),
-                  icon: const Icon(Icons.cancel_outlined,
-                      color: Colors.white, size: 20),
+                  icon: const Icon(
+                    Icons.cancel_outlined,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                   label: const Text(
                     'CANCEL EMERGENCY ALERT',
                     style: TextStyle(

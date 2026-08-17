@@ -80,9 +80,7 @@ class _EstablishmentDashboardScreenState
           callback: (payload) async {
             final updatedRecord = payload.newRecord;
             final status = updatedRecord['status'];
-            (updatedRecord['category'] ?? 'POLICE')
-                .toString()
-                .toUpperCase();
+            (updatedRecord['category'] ?? 'POLICE').toString().toUpperCase();
             final isSilent =
                 updatedRecord['is_silent'] == true ||
                 updatedRecord['is_silent'] == 'true';
@@ -245,25 +243,51 @@ class _EstablishmentDashboardScreenState
     }
   }
 
+  /// 🛑 Cancel Sheet Handler in Parent Screen
   Future<void> _showCancelBottomSheet(String alertId) async {
     await showModalBottomSheet(
-      context: context,
+      context: context, // Uses the State's BuildContext directly
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => CancelAlertSheet(
+      builder: (modalContext) => CancelAlertSheet(
         alertId: alertId,
         onConfirmCancel: (reason) async {
-          await EmergencyService.cancelEmergency(alertId, reason);
-          if (context.mounted) {
-            Navigator.pop(context);
-            _clearActiveAlert();
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Emergency alert was successfully cancelled.'),
-                backgroundColor: Colors.black87,
-              ),
+          try {
+            // 1. Call database cancel method
+            await EmergencyService.cancelEmergency(
+              emergencyId: alertId,
+              reason: reason,
+              currentStatus: _activeAlert?['status']?.toString(),
             );
+
+            // 2. Dismiss bottom sheet safely using modalContext
+            if (modalContext.mounted) {
+              Navigator.pop(modalContext);
+            }
+
+            // 3. Reset parent state & notify user using parent context
+            if (mounted) {
+              _clearActiveAlert();
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Emergency alert was successfully cancelled.'),
+                  backgroundColor: Colors.black87,
+                ),
+              );
+            }
+          } catch (e) {
+            if (modalContext.mounted) {
+              Navigator.pop(modalContext);
+            }
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to cancel alert: ${e.toString()}'),
+                  backgroundColor: Colors.red.shade800,
+                ),
+              );
+            }
           }
         },
       ),
@@ -305,8 +329,10 @@ class _EstablishmentDashboardScreenState
                 ),
                 const SizedBox(width: 6),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: accentGold.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
@@ -337,22 +363,18 @@ class _EstablishmentDashboardScreenState
         ],
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(
-                color: primaryNavy,
-              ),
-            )
+          ? const Center(child: CircularProgressIndicator(color: primaryNavy))
           : _activeAlert != null
-              ? LiveStatusTracker(
-                  alertId: _activeAlert!['id'],
-                  initialAlert: _activeAlert!,
-                  onAlertEnded: _clearActiveAlert,
-                  onCancelPressed: (id) => _showCancelBottomSheet(id),
-                )
-              : PanicTriggerView(
-                  onTriggerPanic: _triggerPanicAlert,
-                  onTriggerSilentPanic: _triggerSilentPanicAlert,
-                ),
+          ? LiveStatusTracker(
+              alertId: _activeAlert!['id'],
+              initialAlert: _activeAlert!,
+              onAlertEnded: _clearActiveAlert,
+              onCancelPressed: (id) => _showCancelBottomSheet(id),
+            )
+          : PanicTriggerView(
+              onTriggerPanic: _triggerPanicAlert,
+              onTriggerSilentPanic: _triggerSilentPanicAlert,
+            ),
     );
   }
 }

@@ -6,7 +6,7 @@ class EmergencyService {
 
   /// Incident Broadcast: Captures GPS location & inserts row into 'emergencies' table
   static Future<Map<String, dynamic>> triggerEmergency({
-    required String category, // e.g. 'police', 'medical', 'fire'
+    required String category,
     String? notes,
     bool isSilent = false,
   }) async {
@@ -15,17 +15,15 @@ class EmergencyService {
       throw Exception('User is not authenticated.');
     }
 
-    // 1. Grab current coordinates via geolocator
     final position = await LocationService.getCurrentLocation();
 
-    // 2. Insert into 'emergencies' table (Fires database webhook to Edge Function)
     final response = await _supabase.from('emergencies').insert({
       'establishment_id': user.id,
       'category': category,
       'status': 'pending',
       'latitude': position.latitude,
       'longitude': position.longitude,
-      'is_silent': isSilent, // 👈 CRITICAL FIX: Pass the isSilent flag to database!
+      'is_silent': isSilent,
       'notes': isSilent ? 'SILENT ALARM TRIGGERED' : notes,
     }).select().single();
 
@@ -41,7 +39,7 @@ class EmergencyService {
         .map((records) => records.first);
   }
 
-  /// Fetches the current active alert for the establishment (if any)
+  /// Fetches current active alert for the establishment (if any)
   static Future<Map<String, dynamic>?> getActiveAlert() async {
     final user = _supabase.auth.currentUser;
     if (user == null) return null;
@@ -58,11 +56,41 @@ class EmergencyService {
     return data;
   }
 
-  /// Cancel active emergency
-  static Future<void> cancelEmergency(String emergencyId, String reason) async {
+  /// 🛑 Cancel Active Emergency & Record Incident Audit Log
+  static Future<void> cancelEmergency({
+    required String emergencyId,
+    required String reason,
+    String? currentStatus,
+  }) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) throw Exception('User is not authenticated.');
+
+    // 1. Fetch current status if not provided for log history
+    String prevStatus = currentStatus ?? 'pending';
+    if (currentStatus == null) {
+      final currentAlert = await _supabase
+          .from('emergencies')
+          .select('status')
+          .eq('id', emergencyId)
+          .maybeSingle();
+      if (currentAlert != null && currentAlert['status'] != null) {
+        prevStatus = currentAlert['status'].toString();
+      }
+    }
+
+    // 2. Update 'emergencies' status and record reason
     await _supabase.from('emergencies').update({
       'status': 'cancelled',
       'cancelled_reason': reason,
     }).eq('id', emergencyId);
+
+    // 3. Write record into 'incident_logs' for complete history tracking
+    await _supabase.from('incident_logs').insert({
+      'emergency_id': emergencyId,
+      'action_by': user.id,
+      'previous_status': prevStatus,
+      'new_status': 'cancelled',
+      'remarks': reason,
+    });
   }
 }
