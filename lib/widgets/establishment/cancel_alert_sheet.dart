@@ -135,7 +135,7 @@ class _CancelAlertSheetState extends State<CancelAlertSheet> {
               return ChoiceChip(
                 label: Text(reason),
                 selected: isSelected,
-                selectedColor: primaryNavy.withOpacity(0.08),
+                selectedColor: primaryNavy.withValues(alpha: .08),
                 backgroundColor: Colors.grey.shade100,
                 side: BorderSide(
                   color: isSelected ? primaryNavy : Colors.grey.shade300,
