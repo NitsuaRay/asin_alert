@@ -179,7 +179,7 @@ class _OtaReleaseTabState extends State<OtaReleaseTab> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
+                  color: Colors.black.withValues(alpha: 0.08),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -240,7 +240,7 @@ class _OtaReleaseTabState extends State<OtaReleaseTab> {
                 ),
                 decoration: BoxDecoration(
                   color: isApkSelected
-                      ? Colors.green.shade50.withOpacity(0.5)
+                      ? Colors.green.shade50.withValues(alpha: 0.5)
                       : Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
@@ -251,7 +251,7 @@ class _OtaReleaseTabState extends State<OtaReleaseTab> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
+                      color: Colors.black.withValues(alpha: 0.02),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -263,7 +263,7 @@ class _OtaReleaseTabState extends State<OtaReleaseTab> {
                       radius: 26,
                       backgroundColor: isApkSelected
                           ? Colors.green.shade100
-                          : const Color(0xFF0F172A).withOpacity(0.05),
+                          : const Color(0xFF0F172A).withValues(alpha: 0.05),
                       child: Icon(
                         isApkSelected
                             ? Icons.check_circle_rounded

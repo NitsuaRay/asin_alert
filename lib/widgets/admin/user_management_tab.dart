@@ -102,7 +102,7 @@ class _UserManagementTabState extends State<UserManagementTab> {
                           border: Border.all(color: Colors.grey.shade200),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.01),
+                              color: Colors.black.withValues(alpha: 0.01),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),
@@ -115,7 +115,7 @@ class _UserManagementTabState extends State<UserManagementTab> {
                           ),
                           leading: CircleAvatar(
                             backgroundColor:
-                                const Color(0xFF0F172A).withOpacity(0.08),
+                                const Color(0xFF0F172A).withValues(alpha: 0.08),
                             child: Icon(
                               role == 'police'
                                   ? Icons.local_police_rounded
@@ -351,7 +351,7 @@ class _UserManagementTabState extends State<UserManagementTab> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: selectedRole,
+                      initialValue: selectedRole,
                       decoration: const InputDecoration(
                         labelText: 'Role',
                         border: OutlineInputBorder(),

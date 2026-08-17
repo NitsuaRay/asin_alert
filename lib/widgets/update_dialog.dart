@@ -22,7 +22,6 @@ class UpdateDialog extends StatefulWidget {
 
 class _UpdateDialogState extends State<UpdateDialog> {
   bool _isDownloading = false;
-  String _downloadProgress = '0%';
   double _progressValue = 0.0;
   String _statusText = 'Ready to download update.';
 
@@ -42,7 +41,6 @@ class _UpdateDialogState extends State<UpdateDialog> {
               final int progress = int.tryParse(event.value ?? '0') ?? 0;
               setState(() {
                 _progressValue = progress / 100.0;
-                _downloadProgress = '$progress%';
                 _statusText = 'Downloading: $progress%';
               });
               break;

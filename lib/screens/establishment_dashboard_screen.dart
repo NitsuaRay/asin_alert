@@ -76,7 +76,7 @@ class _EstablishmentDashboardScreenState
           callback: (payload) async {
             final updatedRecord = payload.newRecord;
             final status = updatedRecord['status'];
-            final category = (updatedRecord['category'] ?? 'POLICE')
+            (updatedRecord['category'] ?? 'POLICE')
                 .toString()
                 .toUpperCase();
             final isSilent =

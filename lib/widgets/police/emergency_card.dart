@@ -142,7 +142,7 @@ class EmergencyCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: catBgColor,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: catColor.withOpacity(0.3)),
+                border: Border.all(color: catColor.withValues(alpha: 0.3)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
