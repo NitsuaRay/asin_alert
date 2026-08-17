@@ -68,16 +68,73 @@ class PoliceService {
         );
   }
 
-  /// 3. Update Incident Status ('acknowledged', 'en_route', 'resolved')
-  static Future<void> updateStatus(String alertId, String newStatus) async {
-    final user = _supabase.auth.currentUser;
-    await _supabase
-        .from('emergencies')
-        .update({'status': newStatus, 'responder_id': user?.id})
-        .eq('id', alertId);
+  /// 3. Update Incident Status ('acknowledged', 'en_route', 'resolved') + Audit Log & Timestamps
+  static Future<void> updateStatus({
+    required String alertId,
+    required String newStatus,
+    String? previousStatus,
+    String? remarks,
+  }) async {
+    try {
+      final user = _supabase.auth.currentUser;
+      final now = DateTime.now().toUtc().toIso8601String();
+
+      // Base fields to update in emergencies table
+      final Map<String, dynamic> emergencyUpdates = {
+        'status': newStatus,
+        'responder_id': user?.id,
+        'updated_at': now,
+      };
+
+      // Conditionally attach specific lifecycle timestamps
+      if (newStatus == 'acknowledged') {
+        emergencyUpdates['acknowledged_at'] = now;
+      } else if (newStatus == 'resolved') {
+        emergencyUpdates['resolved_at'] = now;
+      }
+
+      // Update emergency record
+      await _supabase
+          .from('emergencies')
+          .update(emergencyUpdates)
+          .eq('id', alertId);
+
+      // Audit log insertion
+      await _supabase.from('incident_logs').insert({
+        'emergency_id': alertId,
+        'action_by': user?.id,
+        'previous_status': previousStatus,
+        'new_status': newStatus,
+        'remarks': remarks ?? 'Status updated to ${newStatus.replaceAll('_', ' ')}',
+        'created_at': now,
+      });
+
+      debugPrint('✅ Status successfully updated to: $newStatus');
+    } catch (e) {
+      debugPrint('❌ Error updating emergency status: $e');
+      rethrow;
+    }
   }
 
-  /// 4. Open External Google Maps / Waze Navigation
+  /// 4. Stream single emergency by ID (for detail view)
+  static Stream<Map<String, dynamic>> streamEmergency(String emergencyId) {
+    return _supabase
+        .from('emergencies')
+        .stream(primaryKey: ['id'])
+        .eq('id', emergencyId)
+        .map((records) => records.isNotEmpty ? records.first : {});
+  }
+
+  /// 5. Stream timeline / incident logs for a specific emergency
+  static Stream<List<Map<String, dynamic>>> streamIncidentLogs(String emergencyId) {
+    return _supabase
+        .from('incident_logs')
+        .stream(primaryKey: ['id'])
+        .eq('emergency_id', emergencyId)
+        .order('created_at', ascending: true);
+  }
+
+  /// 6. Open External Google Maps / Waze Navigation
   static Future<void> openMapDirections(
     double latitude,
     double longitude,

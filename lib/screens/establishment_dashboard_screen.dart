@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:asin_alert/services/emergency_service.dart';
-import 'package:asin_alert/services/auth_service.dart';
 import 'package:asin_alert/services/notification_service.dart';
 import 'package:asin_alert/widgets/establishment/cancel_alert_sheet.dart';
 import 'package:asin_alert/widgets/establishment/panic_trigger_view.dart';
+import 'package:asin_alert/widgets/logout_confirmation_dialog.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -356,9 +356,10 @@ class _EstablishmentDashboardScreenState
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: Colors.white),
             tooltip: 'Logout',
-            onPressed: () async {
-              await AuthService().signOut();
-            },
+            onPressed: () => LogoutConfirmationDialog.show(
+              context,
+              accountType: 'establishment',
+            ),
           ),
         ],
       ),
