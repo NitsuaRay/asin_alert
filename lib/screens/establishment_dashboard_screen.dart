@@ -30,6 +30,10 @@ class _EstablishmentDashboardScreenState
   int _headerTapCount = 0;
   Timer? _headerTapTimer;
 
+  // Branded Color Palette
+  static const Color primaryNavy = Color(0xFF0F172A);
+  static const Color accentGold = Color(0xFFD97706);
+
   @override
   void initState() {
     super.initState();
@@ -174,7 +178,7 @@ class _EstablishmentDashboardScreenState
   Future<void> _triggerSilentPanicAlert(String category) async {
     try {
       final alert = await EmergencyService.triggerEmergency(
-        category: category, // 'security_hostage'
+        category: category,
         isSilent: true,
       );
 
@@ -204,9 +208,17 @@ class _EstablishmentDashboardScreenState
     }
   }
 
-  /// 4-Tap Gesture Handler on App Bar Header
+  /// 4-Tap Discrete Gesture Handler on App Bar Logo/Header
   Future<void> _handleHeaderTap() async {
     _headerTapCount++;
+
+    // Tactile haptic per discrete tap
+    try {
+      if (await Vibration.hasVibrator()) {
+        Vibration.vibrate(duration: 30);
+      }
+    } catch (_) {}
+
     _headerTapTimer?.cancel();
     _headerTapTimer = Timer(const Duration(milliseconds: 2500), () {
       _headerTapCount = 0;
@@ -218,11 +230,11 @@ class _EstablishmentDashboardScreenState
 
       try {
         if (await Vibration.hasVibrator()) {
-          Vibration.vibrate(duration: 100);
+          Vibration.vibrate(pattern: [0, 80, 40, 120]);
         }
       } catch (_) {}
 
-      await _triggerSilentPanicAlert('crime'); // 👈 Updated to 'crime'
+      await _triggerSilentPanicAlert('crime');
     }
   }
 
@@ -261,25 +273,62 @@ class _EstablishmentDashboardScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC), // Clean slate background
       appBar: AppBar(
+        backgroundColor: primaryNavy,
+        elevation: 2,
+        iconTheme: const IconThemeData(color: Colors.white),
         title: GestureDetector(
-          behavior: HitTestBehavior
-              .opaque, // Ensures tap detection across the full title width
+          behavior: HitTestBehavior.opaque, // Full title width hit detection
           onTap: _handleHeaderTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0),
             child: Row(
-              children: const [
-                Icon(Icons.security, color: Colors.red),
-                SizedBox(width: 10),
-                Text('ASIN Alert - Establishment'),
+              children: [
+                // 🖼️ ASIN Logo Integration
+                Image.asset(
+                  'assets/asinLogo.png',
+                  height: 32,
+                  width: 32,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const Icon(Icons.security, color: accentGold, size: 28),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'ASIN Alert',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: accentGold.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: accentGold, width: 0.8),
+                  ),
+                  child: const Text(
+                    'ESTABLISHMENT',
+                    style: TextStyle(
+                      color: accentGold,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout_rounded, color: Colors.white),
             tooltip: 'Logout',
             onPressed: () async {
               await AuthService().signOut();
@@ -288,18 +337,22 @@ class _EstablishmentDashboardScreenState
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _activeAlert != null
-          ? LiveStatusTracker(
-              alertId: _activeAlert!['id'],
-              initialAlert: _activeAlert!,
-              onAlertEnded: _clearActiveAlert,
-              onCancelPressed: (id) => _showCancelBottomSheet(id),
+          ? const Center(
+              child: CircularProgressIndicator(
+                color: primaryNavy,
+              ),
             )
-          : PanicTriggerView(
-              onTriggerPanic: _triggerPanicAlert,
-              onTriggerSilentPanic: _triggerSilentPanicAlert,
-            ),
+          : _activeAlert != null
+              ? LiveStatusTracker(
+                  alertId: _activeAlert!['id'],
+                  initialAlert: _activeAlert!,
+                  onAlertEnded: _clearActiveAlert,
+                  onCancelPressed: (id) => _showCancelBottomSheet(id),
+                )
+              : PanicTriggerView(
+                  onTriggerPanic: _triggerPanicAlert,
+                  onTriggerSilentPanic: _triggerSilentPanicAlert,
+                ),
     );
   }
 }

@@ -17,6 +17,8 @@ class LiveStatusTracker extends StatelessWidget {
     required this.onCancelPressed,
   });
 
+  static const Color primaryNavy = Color(0xFF0F172A);
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<Map<String, dynamic>>(
@@ -27,7 +29,8 @@ class LiveStatusTracker extends StatelessWidget {
 
         // Extract Category & Silent Mode Flag
         final category = (alert['category'] ?? 'police').toString();
-        final bool isSilent = alert['is_silent'] == true || alert['is_silent'] == 'true';
+        final bool isSilent =
+            alert['is_silent'] == true || alert['is_silent'] == 'true';
 
         if (status == 'resolved' || status == 'cancelled') {
           Future.microtask(() {
@@ -35,37 +38,71 @@ class LiveStatusTracker extends StatelessWidget {
           });
         }
 
-        return Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            children: [
-              const SizedBox(height: 10),
+        return SafeArea(
+          child: Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 🚨 Status Header displaying Logo Watermark, Category & Silent status
+                StatusHeaderCard(
+                  status: status,
+                  category: category,
+                  isSilent: isSilent,
+                ),
 
-              // 🚨 Updated Header displaying Category & Silent status
-              StatusHeaderCard(
-                status: status,
-                category: category,
-                isSilent: isSilent,
-              ),
+                const SizedBox(height: 24),
 
-              const SizedBox(height: 30),
-              StatusTimeline(currentStatus: status),
-              const Spacer(),
-
-              ElevatedButton.icon(
-                onPressed: () => onCancelPressed(alert['id']),
-                icon: const Icon(Icons.cancel, color: Colors.white),
-                label: const Text('CANCEL EMERGENCY ALERT'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.grey.shade900,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                // ⏳ Custom Vertical Timeline Tracker
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: StatusTimeline(currentStatus: status),
+                    ),
                   ),
                 ),
-              ),
-            ],
+
+                const SizedBox(height: 16),
+
+                // 🛑 Emergency Cancel Action Button
+                ElevatedButton.icon(
+                  onPressed: () => onCancelPressed(alert['id']),
+                  icon: const Icon(Icons.cancel_outlined,
+                      color: Colors.white, size: 20),
+                  label: const Text(
+                    'CANCEL EMERGENCY ALERT',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryNavy,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    minimumSize: const Size.fromHeight(52),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

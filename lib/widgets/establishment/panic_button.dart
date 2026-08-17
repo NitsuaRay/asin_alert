@@ -4,11 +4,13 @@ import 'package:vibration/vibration.dart';
 class PanicButton extends StatefulWidget {
   final Future<void> Function() onTrigger;
   final Duration holdDuration;
+  final Color baseColor;
 
   const PanicButton({
     super.key,
     required this.onTrigger,
-    this.holdDuration = const Duration(seconds: 2), // 2-second hold requirement
+    this.holdDuration = const Duration(seconds: 2),
+    this.baseColor = const Color(0xFFDC2626), // Default Red
   });
 
   @override
@@ -31,10 +33,12 @@ class _PanicButtonState extends State<PanicButton>
     );
 
     _controller.addListener(() {
-      // Vibrational feedback during press
       if (_controller.isAnimating && _hasVibrator) {
         if ((_controller.value * 100).toInt() % 15 == 0) {
-          Vibration.vibrate(duration: 40, amplitude: (_controller.value * 255).toInt());
+          Vibration.vibrate(
+            duration: 35,
+            amplitude: (_controller.value * 255).toInt(),
+          );
         }
       }
     });
@@ -42,8 +46,7 @@ class _PanicButtonState extends State<PanicButton>
     _controller.addStatusListener((status) async {
       if (status == AnimationStatus.completed && !_isTriggering) {
         setState(() => _isTriggering = true);
-        
-        // Heavy vibration pulse on trigger complete
+
         if (_hasVibrator) {
           Vibration.vibrate(pattern: [0, 100, 50, 200]);
         }
@@ -107,62 +110,80 @@ class _PanicButtonState extends State<PanicButton>
         animation: _controller,
         builder: (context, child) {
           final progress = _controller.value;
-          return Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(
-                width: 220,
-                height: 220,
-                child: CircularProgressIndicator(
-                  value: progress,
-                  strokeWidth: 12,
-                  backgroundColor: Colors.red.shade100,
-                  color: Colors.red.shade800,
+          final scale = 1.0 - (progress * 0.05); // Subtle press scale effect
+
+          return Transform.scale(
+            scale: scale,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Outer Progress Circle
+                SizedBox(
+                  width: 230,
+                  height: 230,
+                  child: CircularProgressIndicator(
+                    value: progress,
+                    strokeWidth: 12,
+                    backgroundColor: widget.baseColor.withValues(alpha: 0.15),
+                    color: widget.baseColor,
+                    strokeCap: StrokeCap.round,
+                  ),
                 ),
-              ),
-              Container(
-                width: 180,
-                height: 180,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: progress > 0 ? Colors.red.shade800 : Colors.red.shade600,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.red.withValues(alpha: 0.4),
-                      blurRadius: progress > 0 ? 30 : 15,
-                      spreadRadius: progress > 0 ? 8 : 2,
+                // Inner Panic Button Core
+                Container(
+                  width: 190,
+                  height: 190,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        widget.baseColor,
+                        HSLColor.fromColor(widget.baseColor)
+                            .withLightness(0.35)
+                            .toColor(),
+                      ],
                     ),
-                  ],
-                ),
-                child: Center(
-                  child: _isTriggering
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.warning_rounded,
-                              size: 55,
-                              color: Colors.white,
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              progress > 0
-                                  ? 'HOLD... ${( (1 - progress) * 2 ).toStringAsFixed(1)}s'
-                                  : 'HOLD 2 SEC\nFOR POLICE',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
+                    boxShadow: [
+                      BoxShadow(
+                        color: widget.baseColor.withValues(alpha: progress > 0 ? 0.5 : 0.25),
+                        blurRadius: progress > 0 ? 30 : 16,
+                        spreadRadius: progress > 0 ? 8 : 2,
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: _isTriggering
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.warning_amber_rounded,
+                                size: 56,
                                 color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                height: 1.2,
                               ),
-                            ),
-                          ],
-                        ),
+                              const SizedBox(height: 6),
+                              Text(
+                                progress > 0
+                                    ? 'HOLD... ${((1 - progress) * widget.holdDuration.inSeconds).toStringAsFixed(1)}s'
+                                    : 'HOLD 2 SEC\nFOR HELP',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
+                                  height: 1.2,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           );
         },
       ),

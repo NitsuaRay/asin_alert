@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:vibration/vibration.dart';
 import 'panic_button.dart';
 
 class PanicTriggerView extends StatefulWidget {
@@ -29,19 +30,19 @@ class _PanicTriggerViewState extends State<PanicTriggerView> {
       'id': 'police',
       'label': 'Police',
       'icon': Icons.local_police_rounded,
-      'color': Colors.blue.shade800,
+      'color': const Color(0xFF1E3A8A), // Police Blue
     },
     {
       'id': 'fire',
       'label': 'Fire Dept',
       'icon': Icons.local_fire_department_rounded,
-      'color': Colors.deepOrange.shade700,
+      'color': const Color(0xFFC2410C), // Fire Orange
     },
     {
       'id': 'medical',
       'label': 'Medical',
       'icon': Icons.medical_services_rounded,
-      'color': Colors.red.shade700,
+      'color': const Color(0xFFB91C1C), // Emergency Red
     },
   ];
 
@@ -51,9 +52,20 @@ class _PanicTriggerViewState extends State<PanicTriggerView> {
     super.dispose();
   }
 
+  /// Single tap visual/haptic feedback for discrete multi-tap sequence
+  Future<void> _provideDiscreteFeedback() async {
+    try {
+      if (await Vibration.hasVibrator()) {
+        Vibration.vibrate(duration: 30);
+      }
+    } catch (_) {}
+  }
+
   /// Handles 4-Tap logic for Silent Alert Button
   void _handleSilentButtonTap() {
     if (_isSilentLoading || widget.onTriggerSilentPanic == null) return;
+
+    _provideDiscreteFeedback();
 
     setState(() {
       _silentTapCount++;
@@ -74,53 +86,57 @@ class _PanicTriggerViewState extends State<PanicTriggerView> {
   }
 
   Future<void> _executeSilentPanic() async {
-  setState(() => _isSilentLoading = true);
-  try {
-    // 🤫 Uses existing ENUM value 'crime' for silent hostage/threat alerts
-    await widget.onTriggerSilentPanic!('crime');
-  } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Silent Alert Error: ${e.toString()}'),
-          backgroundColor: Colors.red.shade800,
-        ),
-      );
-    }
-  } finally {
-    if (mounted) {
-      setState(() => _isSilentLoading = false);
+    setState(() => _isSilentLoading = true);
+    try {
+      await widget.onTriggerSilentPanic!('crime');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Silent Alert Error: ${e.toString()}'),
+            backgroundColor: Colors.red.shade900,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSilentLoading = false);
+      }
     }
   }
-}
 
   @override
   Widget build(BuildContext context) {
+    final activeCategory = _categories.firstWhere(
+      (c) => c['id'] == _selectedCategory,
+      orElse: () => _categories.first,
+    );
+
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text(
               'EMERGENCY PANIC SYSTEM',
               style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.5,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
-              'Select standard emergency type or tap 4 times for Silent Alert.',
+              'Select emergency type or tap 4 times for Silent Alert',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
 
-            // 🏷️ Category Selection Chips for Loud Alarm
+            // 🏷️ Category Chips
             Wrap(
-              spacing: 10,
+              spacing: 12,
               runSpacing: 10,
               alignment: WrapAlignment.center,
               children: _categories.map((cat) {
@@ -143,9 +159,9 @@ class _PanicTriggerViewState extends State<PanicTriggerView> {
                   ),
                   selected: isSelected,
                   selectedColor: catColor,
-                  backgroundColor: catColor.withValues(alpha:0.08),
+                  backgroundColor: catColor.withValues(alpha: 0.08),
                   side: BorderSide(
-                    color: isSelected ? catColor : catColor.withValues(alpha:0.3),
+                    color: isSelected ? catColor : catColor.withValues(alpha: 0.3),
                     width: 1.5,
                   ),
                   onSelected: (selected) {
@@ -157,31 +173,32 @@ class _PanicTriggerViewState extends State<PanicTriggerView> {
               }).toList(),
             ),
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 36),
 
-            // 🚨 Standard Loud Alarm Button
+            // 🚨 Category-based Loud Panic Button
             PanicButton(
+              baseColor: activeCategory['color'] as Color,
               onTrigger: () => widget.onTriggerPanic(_selectedCategory),
               holdDuration: const Duration(seconds: 2),
             ),
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 36),
             const Divider(height: 1),
             const SizedBox(height: 24),
 
-            // 🤫 4-Tap Silent Alarm Button (Hostage / Kidnap / Security Threat)
+            // 🤫 Silent Alert Button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: _isSilentLoading ? null : _handleSilentButtonTap,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _silentTapCount > 0
-                      ? Colors.amber.shade900
-                      : Colors.grey.shade900,
+                      ? const Color(0xFF78350F) // Active tap warning shade
+                      : const Color(0xFF0F172A), // Slate 900
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   elevation: 2,
                 ),
@@ -195,17 +212,19 @@ class _PanicTriggerViewState extends State<PanicTriggerView> {
                         ),
                       )
                     : Icon(
-                        Icons.security,
-                        color: _silentTapCount > 0 ? Colors.white : Colors.amber,
+                        Icons.security_rounded,
+                        color: _silentTapCount > 0
+                            ? Colors.amber
+                            : Colors.amber.shade400,
                       ),
                 label: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       _isSilentLoading
-                          ? 'SENDING SILENT ALERT...'
+                          ? 'DISPATCHING SILENT ALERT...'
                           : _silentTapCount > 0
-                              ? 'TAP ${4 - _silentTapCount} MORE TIMES'
+                              ? 'TAP ${4 - _silentTapCount} MORE TIME${(4 - _silentTapCount) > 1 ? 'S' : ''}'
                               : 'SILENT ALERT (TAP 4 TIMES)',
                       style: const TextStyle(
                         fontSize: 14,
@@ -214,11 +233,11 @@ class _PanicTriggerViewState extends State<PanicTriggerView> {
                       ),
                     ),
                     if (!_isSilentLoading && _silentTapCount == 0)
-                      const Text(
-                        'Hostage & Threat Discrete Emergency Dispatch',
+                      Text(
+                        'Hostage & Discrete Threat Dispatch',
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.grey,
+                          color: Colors.grey.shade400,
                           fontWeight: FontWeight.normal,
                         ),
                       ),
@@ -227,37 +246,29 @@ class _PanicTriggerViewState extends State<PanicTriggerView> {
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
-            // Information Card
-            Card(
-              color: Colors.grey.shade100,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: Colors.grey.shade300),
+            // Quick Hint Box
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade300),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(14.0),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.lock_clock,
-                      color: Colors.grey.shade700,
-                      size: 20,
+              child: Row(
+                children: [
+                  Icon(Icons.touch_app_rounded,
+                      color: Colors.grey.shade700, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Shortcut: Tap 4 times on the title header at the top to send a silent alert discretely.',
+                      style: TextStyle(
+                          fontSize: 11, color: Colors.grey.shade700),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Alternatively, tap 4 times on the app title at the top to send a silent threat dispatch quietly.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade800,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],

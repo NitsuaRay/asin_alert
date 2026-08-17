@@ -24,8 +24,11 @@ class _CancelAlertSheetState extends State<CancelAlertSheet> {
   ];
 
   String _selectedReason = 'Accidental Press';
-  final TextEditingController _customReasonController = TextEditingController();
+  final TextEditingController _customReasonController =
+      TextEditingController();
   bool _isSubmitting = false;
+
+  static const Color primaryNavy = Color(0xFF0F172A);
 
   @override
   void dispose() {
@@ -69,7 +72,7 @@ class _CancelAlertSheetState extends State<CancelAlertSheet> {
           // Drag Handle
           Center(
             child: Container(
-              width: 40,
+              width: 36,
               height: 4,
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
@@ -79,18 +82,18 @@ class _CancelAlertSheetState extends State<CancelAlertSheet> {
             ),
           ),
 
-          // Icon & Header
+          // Header Row
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.amber.shade100,
+                  color: Colors.red.shade50,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.warning_amber_rounded,
-                  color: Colors.amber.shade900,
+                  color: Colors.red.shade700,
                   size: 26,
                 ),
               ),
@@ -104,12 +107,12 @@ class _CancelAlertSheetState extends State<CancelAlertSheet> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        color: primaryNavy,
                       ),
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'Please select a reason to notify responders.',
+                      'Select a reason to notify dispatch personnel.',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.black54,
@@ -132,13 +135,14 @@ class _CancelAlertSheetState extends State<CancelAlertSheet> {
               return ChoiceChip(
                 label: Text(reason),
                 selected: isSelected,
-                selectedColor: Colors.red.shade50,
+                selectedColor: primaryNavy.withOpacity(0.08),
                 backgroundColor: Colors.grey.shade100,
                 side: BorderSide(
-                  color: isSelected ? Colors.red.shade400 : Colors.grey.shade300,
+                  color: isSelected ? primaryNavy : Colors.grey.shade300,
+                  width: isSelected ? 1.5 : 1,
                 ),
                 labelStyle: TextStyle(
-                  color: isSelected ? Colors.red.shade800 : Colors.grey.shade800,
+                  color: isSelected ? primaryNavy : Colors.grey.shade800,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   fontSize: 13,
                 ),
@@ -151,7 +155,7 @@ class _CancelAlertSheetState extends State<CancelAlertSheet> {
             }).toList(),
           ),
 
-          // Show Custom TextField if "Other" is chosen
+          // Custom Input Field
           if (_selectedReason == 'Other') ...[
             const SizedBox(height: 16),
             TextField(
@@ -178,7 +182,8 @@ class _CancelAlertSheetState extends State<CancelAlertSheet> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+                  onPressed:
+                      _isSubmitting ? null : () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -189,7 +194,7 @@ class _CancelAlertSheetState extends State<CancelAlertSheet> {
                   child: const Text(
                     'Keep Active',
                     style: TextStyle(
-                      color: Colors.black87,
+                      color: primaryNavy,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
