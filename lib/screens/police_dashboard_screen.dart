@@ -1,6 +1,8 @@
 import 'package:asin_alert/services/emergency_alarm_service.dart';
 import 'package:asin_alert/services/notification_service.dart';
+import 'package:asin_alert/services/ota_service.dart';
 import 'package:asin_alert/widgets/police/emergency_card.dart';
+import 'package:asin_alert/widgets/update_dialog.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -23,6 +25,27 @@ class _PoliceDashboardScreenState extends State<PoliceDashboardScreen> {
     PoliceService.registerResponderToken();
     _listenForIncomingEmergencies();
     EmergencyAlarmService.stopAlarm();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForOtaUpdates();
+    });
+  }
+
+  // ⬇️ ADD THIS METHOD ANYWHERE INSIDE THE STATE CLASS
+  Future<void> _checkForOtaUpdates() async {
+    final updateInfo = await OtaService.checkForUpdate();
+    if (updateInfo != null && mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => UpdateDialog(
+          currentVersion: updateInfo['currentVersion'],
+          remoteVersion: updateInfo['remoteVersion'],
+          downloadUrl: updateInfo['downloadUrl'],
+          changelog: updateInfo['changelog'],
+        ),
+      );
+    }
   }
 
   void _listenForIncomingEmergencies() {
@@ -38,7 +61,7 @@ class _PoliceDashboardScreenState extends State<PoliceDashboardScreen> {
 
             // 1. New Emergency Alert Inserted (Pending)
             if (eventType == PostgresChangeEvent.insert) {
-              await NotificationService.showSirenNotification(
+              await NotificationService.showAlertNotification(
                 RemoteMessage(
                   notification: RemoteNotification(
                     title: '🚨 EMERGENCY PANIC ALERT!',
@@ -76,7 +99,7 @@ class _PoliceDashboardScreenState extends State<PoliceDashboardScreen> {
                 await EmergencyAlarmService.stopAlarm(); // 🛑 Stops police alarm instantly
               }
 
-              await NotificationService.showSirenNotification(
+              await NotificationService.showAlertNotification(
                 RemoteMessage(
                   notification: RemoteNotification(title: title, body: body),
                 ),

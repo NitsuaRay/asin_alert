@@ -3,13 +3,13 @@ import 'package:asin_alert/services/emergency_service.dart';
 import 'package:asin_alert/services/auth_service.dart';
 import 'package:asin_alert/services/notification_service.dart';
 import 'package:asin_alert/widgets/establishment/cancel_alert_sheet.dart';
+import 'package:asin_alert/widgets/establishment/panic_trigger_view.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:vibration/vibration.dart';
 
 import '../widgets/establishment/live_status_tracker.dart';
-import '../services/panic_trigger_view.dart';
 
 class EstablishmentDashboardScreen extends StatefulWidget {
   const EstablishmentDashboardScreen({super.key});
@@ -24,18 +24,17 @@ class _EstablishmentDashboardScreenState
   Map<String, dynamic>? _activeAlert;
   bool _isLoading = true;
 
-  // Realtime Channel for listening to police updates on the active alert
   RealtimeChannel? _statusSubscription;
 
-  // Silent Alarm Gesture Tracking (Multi-tap detector)
-  int _tapCount = 0;
-  Timer? _tapTimer;
+  // Multi-tap detector state for AppBar header
+  int _headerTapCount = 0;
+  Timer? _headerTapTimer;
 
   @override
   void initState() {
     super.initState();
     _checkActiveAlert();
-    _saveFcmToken(); // Save token so webhook can notify this store
+    _saveFcmToken();
   }
 
   Future<void> _saveFcmToken() async {
@@ -60,7 +59,6 @@ class _EstablishmentDashboardScreenState
     }
   }
 
-  /// Start listening for status changes on a specific emergency alert
   void _listenForPoliceResponse(String emergencyId) {
     _statusSubscription?.unsubscribe();
 
@@ -78,26 +76,30 @@ class _EstablishmentDashboardScreenState
           callback: (payload) async {
             final updatedRecord = payload.newRecord;
             final status = updatedRecord['status'];
+            final category = (updatedRecord['category'] ?? 'POLICE')
+                .toString()
+                .toUpperCase();
             final isSilent =
                 updatedRecord['is_silent'] == true ||
                 updatedRecord['is_silent'] == 'true';
 
             String title = 'ASIN Alert Update';
-            String body = 'Your alert status has been updated to $status.';
+            String body = 'Your emergency alert status is now: $status.';
 
             if (status == 'acknowledged') {
               title = isSilent
                   ? '🤫 Alert Acknowledged'
-                  : '👮 Alert Acknowledged';
-              body = 'PNP Responders have acknowledged your panic alert!';
+                  : '🚨 Emergency Alert Acknowledged';
+              body = 'Tactical Responders have acknowledged your alert.';
             } else if (status == 'en_route') {
               title = isSilent
                   ? '🤫 Responders En Route'
                   : '🚔 Responders En Route!';
-              body = 'Police officers are currently heading to your location!';
+              body =
+                  'Units are currently dispatched and heading to your location.';
             } else if (status == 'resolved') {
-              title = '✅ Emergency Resolved';
-              body = 'The incident has been marked as resolved.';
+              title = '✅ Incident Resolved';
+              body = 'The emergency situation has been marked as resolved.';
             }
 
             final message = RemoteMessage(
@@ -105,15 +107,14 @@ class _EstablishmentDashboardScreenState
               data: {
                 'title': title,
                 'body': body,
-                'is_silent': isSilent.toString(), // Fixed here
+                'is_silent': isSilent.toString(),
               },
             );
 
-            // Routely trigger soundless banner if silent, else play siren
             if (isSilent) {
               await NotificationService.showSilentNotification(message);
             } else {
-              await NotificationService.showSirenNotification(message);
+              await NotificationService.showAlertNotification(message);
             }
           },
         )
@@ -122,8 +123,8 @@ class _EstablishmentDashboardScreenState
 
   @override
   void dispose() {
-    _tapTimer?.cancel();
-    _statusSubscription?.unsubscribe(); // Prevent channel memory leak
+    _headerTapTimer?.cancel();
+    _statusSubscription?.unsubscribe();
     super.dispose();
   }
 
@@ -147,34 +148,33 @@ class _EstablishmentDashboardScreenState
   }
 
   /// Trigger Normal Panic Alert
-  Future<void> _triggerPanicAlert() async {
-    final alert = await EmergencyService.triggerEmergency(
-      category: 'police',
-      isSilent: false,
-    );
-    if (mounted) {
-      setState(() => _activeAlert = alert);
-      _listenForPoliceResponse(alert['id']);
+  Future<void> _triggerPanicAlert(String category) async {
+    try {
+      final alert = await EmergencyService.triggerEmergency(
+        category: category,
+        isSilent: false,
+      );
+      if (mounted) {
+        setState(() => _activeAlert = alert);
+        _listenForPoliceResponse(alert['id']);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to trigger alert: ${e.toString()}'),
+            backgroundColor: Colors.red.shade800,
+          ),
+        );
+      }
     }
   }
 
-  /// Silent Alarm Trigger: Activated by secret multi-tap gesture (4 fast taps anywhere on app header)
-  Future<void> _handleHeaderTap() async {
-    _tapCount++;
-    _tapTimer?.cancel();
-    _tapTimer = Timer(const Duration(milliseconds: 1500), () {
-      _tapCount = 0;
-    });
-
-    if (_tapCount >= 4) {
-      _tapCount = 0;
-      // Ultra discrete single haptic buzz to confirm trigger without lighting up screen visually
-      if (await Vibration.hasVibrator()) {
-        Vibration.vibrate(duration: 80);
-      }
-
+  /// Trigger Silent Panic Alert (Dedicated for Hostage / Security Threat)
+  Future<void> _triggerSilentPanicAlert(String category) async {
+    try {
       final alert = await EmergencyService.triggerEmergency(
-        category: 'police',
+        category: category, // 'security_hostage'
         isSilent: true,
       );
 
@@ -184,12 +184,45 @@ class _EstablishmentDashboardScreenState
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Silent emergency broadcast sent quietly.'),
-            duration: Duration(seconds: 2),
+            content: Text(
+              'Silent hostage/security threat alert dispatched successfully.',
+            ),
+            duration: Duration(seconds: 3),
             backgroundColor: Colors.black87,
           ),
         );
       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to trigger silent alert: ${e.toString()}'),
+            backgroundColor: Colors.red.shade800,
+          ),
+        );
+      }
+    }
+  }
+
+  /// 4-Tap Gesture Handler on App Bar Header
+  Future<void> _handleHeaderTap() async {
+    _headerTapCount++;
+    _headerTapTimer?.cancel();
+    _headerTapTimer = Timer(const Duration(milliseconds: 2500), () {
+      _headerTapCount = 0;
+    });
+
+    if (_headerTapCount >= 4) {
+      _headerTapCount = 0;
+      _headerTapTimer?.cancel();
+
+      try {
+        if (await Vibration.hasVibrator()) {
+          Vibration.vibrate(duration: 100);
+        }
+      } catch (_) {}
+
+      await _triggerSilentPanicAlert('crime'); // 👈 Updated to 'crime'
     }
   }
 
@@ -203,15 +236,15 @@ class _EstablishmentDashboardScreenState
   Future<void> _showCancelBottomSheet(String alertId) async {
     await showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Smooth keyboard displacement
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => CancelAlertSheet(
         alertId: alertId,
         onConfirmCancel: (reason) async {
           await EmergencyService.cancelEmergency(alertId, reason);
           if (context.mounted) {
-            Navigator.pop(context); // Close bottom sheet
-            _clearActiveAlert(); // Reset dashboard state
+            Navigator.pop(context);
+            _clearActiveAlert();
 
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -230,13 +263,18 @@ class _EstablishmentDashboardScreenState
     return Scaffold(
       appBar: AppBar(
         title: GestureDetector(
-          onTap: _handleHeaderTap, // Secret multi-tap silent alarm trigger
-          child: const Row(
-            children: [
-              Icon(Icons.security, color: Colors.red),
-              SizedBox(width: 10),
-              Text('ASIN Alert - Establishment'),
-            ],
+          behavior: HitTestBehavior
+              .opaque, // Ensures tap detection across the full title width
+          onTap: _handleHeaderTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Row(
+              children: const [
+                Icon(Icons.security, color: Colors.red),
+                SizedBox(width: 10),
+                Text('ASIN Alert - Establishment'),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -260,8 +298,7 @@ class _EstablishmentDashboardScreenState
             )
           : PanicTriggerView(
               onTriggerPanic: _triggerPanicAlert,
-              onTriggerSilentPanic:
-                  _handleHeaderTap, // 👈 Triggers silent alarm when 4-tapping title in view
+              onTriggerSilentPanic: _triggerSilentPanicAlert,
             ),
     );
   }

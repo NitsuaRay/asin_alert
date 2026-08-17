@@ -16,7 +16,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint("Handling background message: ${message.messageId}");
 
   // Trigger high-priority siren notification and alarm sound in background
-  await NotificationService.showSirenNotification(message);
+  await NotificationService.showAlertNotification(message);
   await EmergencyAlarmService.startAlarm();
 }
 

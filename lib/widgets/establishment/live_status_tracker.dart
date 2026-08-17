@@ -25,6 +25,10 @@ class LiveStatusTracker extends StatelessWidget {
         final alert = snapshot.data ?? initialAlert;
         final status = alert['status'] as String;
 
+        // Extract Category & Silent Mode Flag
+        final category = (alert['category'] ?? 'police').toString();
+        final bool isSilent = alert['is_silent'] == true || alert['is_silent'] == 'true';
+
         if (status == 'resolved' || status == 'cancelled') {
           Future.microtask(() {
             onAlertEnded();
@@ -35,11 +39,19 @@ class LiveStatusTracker extends StatelessWidget {
           padding: const EdgeInsets.all(24.0),
           child: Column(
             children: [
-              const SizedBox(height: 20),
-              StatusHeaderCard(status: status),
+              const SizedBox(height: 10),
+
+              // 🚨 Updated Header displaying Category & Silent status
+              StatusHeaderCard(
+                status: status,
+                category: category,
+                isSilent: isSilent,
+              ),
+
               const SizedBox(height: 30),
               StatusTimeline(currentStatus: status),
               const Spacer(),
+
               ElevatedButton.icon(
                 onPressed: () => onCancelPressed(alert['id']),
                 icon: const Icon(Icons.cancel, color: Colors.white),
@@ -48,6 +60,9 @@ class LiveStatusTracker extends StatelessWidget {
                   backgroundColor: Colors.grey.shade900,
                   foregroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ],

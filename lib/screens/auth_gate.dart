@@ -1,3 +1,4 @@
+import 'package:asin_alert/screens/admin_dashboard_screen.dart';
 import 'package:asin_alert/screens/police_dashboard_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -45,30 +46,5 @@ class AuthGate extends StatelessWidget {
       },
     );
   }
-}
 
-// Temporary Placeholder screens until built in next phases
-
-
-class AdminDashboardScreen extends StatelessWidget {
-  const AdminDashboardScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('A.S.I.N. System Administration'),
-        backgroundColor: const Color(0xFF0D47A1),
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => AuthService().signOut(),
-          ),
-        ],
-      ),
-      body: const Center(
-        child: Text('Admin Management & Verification Dashboard'),
-      ),
-    );
-  }
 }

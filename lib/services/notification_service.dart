@@ -19,7 +19,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     if (isSilent) {
       await NotificationService.showSilentNotification(message);
     } else {
-      await NotificationService.showSirenNotification(message);
+      await NotificationService.showAlertNotification(message);
     }
   }
 }
@@ -35,30 +35,29 @@ class NotificationService {
     1000,
   ]);
 
-  // 🔊 Loud Siren Channel
-  static final AndroidNotificationChannel _sirenChannel =
+  // 📳 Vibrating Emergency Channel (No Siren Sound)
+  static final AndroidNotificationChannel _vibrationChannel =
       AndroidNotificationChannel(
-        'siren_channel_v3',
-        'Emergency Siren Alerts',
+        'vibration_alert_channel_v1', // Bumped ID to force Android to apply non-audio rule
+        'Emergency Alert (Vibrate Only)',
         description:
-            'High-priority emergency alerts for PNP police responders.',
+            'High-priority emergency vibration alerts for PNP police responders.',
         importance: Importance.max,
-        playSound: true,
-        sound: const RawResourceAndroidNotificationSound('siren'),
-        enableVibration: true,
+        playSound: false, // 🔇 No Notification Siren Sound
+        enableVibration: true, // 📳 Vibrate
         vibrationPattern: _vibrationPattern,
       );
 
-  // 🤫 Soundless Channel (Visual Banner Only)
-  static final AndroidNotificationChannel
-  _silentChannel = AndroidNotificationChannel(
-    'silent_alert_channel_v2', // Bumped ID to force Android to apply new soundless rules
-    'Silent Panic Alerts',
-    description: 'Discreet emergency alerts without audio or siren.',
-    importance: Importance.high,
-    playSound: false, // 🔇 No Audio
-    enableVibration: false, // 🔇 No Loud Vibration
-  );
+  // 🤫 Soundless & Vibrationless Channel (Visual Banner Only)
+  static final AndroidNotificationChannel _silentChannel =
+      AndroidNotificationChannel(
+        'silent_alert_channel_v2',
+        'Silent Panic Alerts',
+        description: 'Discreet emergency alerts without audio or vibration.',
+        importance: Importance.high,
+        playSound: false, // 🔇 No Audio
+        enableVibration: false, // 🔇 No Vibration
+      );
 
   /// Initialize Local Notifications & FCM Message Handlers
   static Future<void> initialize() async {
@@ -66,7 +65,7 @@ class NotificationService {
         .requestPermission(
           alert: true,
           badge: true,
-          sound: true,
+          sound: false,
           criticalAlert: true,
         );
 
@@ -77,7 +76,9 @@ class NotificationService {
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
     );
-    const iosSettings = DarwinInitializationSettings();
+    const iosSettings = DarwinInitializationSettings(
+      requestSoundPermission: false,
+    );
 
     const initSettings = InitializationSettings(
       android: androidSettings,
@@ -92,7 +93,7 @@ class NotificationService {
         >();
 
     if (androidPlugin != null) {
-      await androidPlugin.createNotificationChannel(_sirenChannel);
+      await androidPlugin.createNotificationChannel(_vibrationChannel);
       await androidPlugin.createNotificationChannel(_silentChannel);
     }
 
@@ -128,12 +129,11 @@ class NotificationService {
 
         if (userRole == 'police') {
           if (isSilent) {
-            // Display soundless banner, DO NOT start continuous EmergencyAlarmService audio
             await showSilentNotification(message);
           } else {
-            // 🔊 Only play sound if status is 'acknowledged' or 'en_route'
-            await showSirenNotification(message, playSound: isAudioStatus);
+            await showAlertNotification(message);
 
+            // Audio alarm via EmergencyAlarmService triggered only when status requires it
             if (isAudioStatus) {
               await EmergencyAlarmService.startAlarm();
             }
@@ -143,7 +143,7 @@ class NotificationService {
           if (isSilent) {
             await showSilentNotification(message);
           } else {
-            await showSirenNotification(message, playSound: true);
+            await showAlertNotification(message);
           }
         }
       } catch (e) {
@@ -151,17 +151,14 @@ class NotificationService {
         if (isSilent) {
           await showSilentNotification(message);
         } else {
-          await showSirenNotification(message, playSound: isAudioStatus);
+          await showAlertNotification(message);
         }
       }
     });
   }
 
-  /// Displays the High-Priority Siren Banner
-  static Future<void> showSirenNotification(
-    RemoteMessage message, {
-    bool? playSound, // Optional explicit override
-  }) async {
+  /// Displays the High-Priority Vibrating Banner (No Siren Audio)
+  static Future<void> showAlertNotification(RemoteMessage message) async {
     final notification = message.notification;
     final title =
         notification?.title ??
@@ -172,31 +169,17 @@ class NotificationService {
         message.data['body'] ??
         'An establishment has triggered an urgent alert!';
 
-    // Extract status from message payload
-    final String status = (message.data['status'] ?? '')
-        .toString()
-        .toLowerCase();
-
-    // 🔊 Only play sound if explicitly passed or if status is acknowledged / en_route
-    final bool shouldPlaySound =
-        playSound ??
-        (status == 'acknowledged' ||
-            status == 'en_route' ||
-            status == 'enroute');
-
     final androidDetails = AndroidNotificationDetails(
-      'siren_channel_v3',
-      'Emergency Siren Alerts',
+      'vibration_alert_channel_v1',
+      'Emergency Alert (Vibrate Only)',
       channelDescription:
-          'High-priority emergency alerts for PNP police responders.',
+          'High-priority emergency vibration alerts for PNP police responders.',
       importance: Importance.max,
       priority: Priority.max,
       fullScreenIntent: true,
-      playSound: shouldPlaySound,
-      sound: shouldPlaySound
-          ? const RawResourceAndroidNotificationSound('siren')
-          : null,
-      enableVibration: true,
+      playSound: false, // 🔇 NO SIREN AUDIO
+      sound: null,
+      enableVibration: true, // 📳 VIBRATE ONLY
       vibrationPattern: _vibrationPattern,
       category: AndroidNotificationCategory.alarm,
       visibility: NotificationVisibility.public,
@@ -204,11 +187,11 @@ class NotificationService {
 
     final notificationDetails = NotificationDetails(
       android: androidDetails,
-      iOS: DarwinNotificationDetails(
-        presentSound: shouldPlaySound,
+      iOS: const DarwinNotificationDetails(
+        presentSound: false, // 🔇 NO SIREN AUDIO
         presentAlert: true,
         presentBadge: true,
-        sound: shouldPlaySound ? 'siren.aiff' : null,
+        sound: null,
       ),
     );
 
@@ -220,7 +203,7 @@ class NotificationService {
     );
   }
 
-  /// Displays a Soundless Notification Banner
+  /// Displays a Soundless & Vibrationless Notification Banner
   static Future<void> showSilentNotification(RemoteMessage message) async {
     final notification = message.notification;
     final title =
@@ -235,19 +218,19 @@ class NotificationService {
     const androidDetails = AndroidNotificationDetails(
       'silent_alert_channel_v2',
       'Silent Panic Alerts',
-      channelDescription: 'Discreet emergency alerts without siren audio.',
+      channelDescription: 'Discreet emergency alerts without audio or vibration.',
       importance: Importance.high,
       priority: Priority.high,
       playSound: false, // 🔇 NO SOUND
       sound: null,
-      enableVibration: false, // 🔇 NO LOUD VIBRATION
+      enableVibration: false, // 🔇 NO VIBRATION
       visibility: NotificationVisibility.public,
     );
 
     const notificationDetails = NotificationDetails(
       android: androidDetails,
       iOS: DarwinNotificationDetails(
-        presentSound: false, // 🔇 NO SOUND
+        presentSound: false,
         presentAlert: true,
         presentBadge: true,
         sound: null,

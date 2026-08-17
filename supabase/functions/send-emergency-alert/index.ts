@@ -111,14 +111,12 @@ serve(async (req) => {
               android: {
                 priority: "high",
                 notification: {
-                  channel_id: isSilent ? "silent_alert_channel_v2" : "siren_channel_v3",
-                  ...(isSilent ? {} : { sound: "siren" }), // Omit sound for silent alert
+                  channel_id: isSilent ? "silent_alert_channel_v2" : "vibration_alert_channel_v1",
                 },
               },
               apns: {
                 payload: {
                   aps: {
-                    ...(isSilent ? {} : { sound: "siren.aiff" }), // Omit sound for silent alert
                     contentAvailable: true,
                   },
                 },
