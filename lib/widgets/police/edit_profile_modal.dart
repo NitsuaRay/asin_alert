@@ -31,6 +31,7 @@ class _EditProfileModalState extends State<EditProfileModal> {
 
   static const Color primaryNavy = Color(0xFF0F172A);
   static const Color borderSlate = Color(0xFFE2E8F0);
+  // static const Color accentGold = Color(0xFFD97706);
 
   @override
   void initState() {
@@ -78,6 +79,23 @@ class _EditProfileModalState extends State<EditProfileModal> {
       setState(() => _isSaving = false);
       if (success) {
         Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(
+                  Icons.check_circle_rounded,
+                  color: Colors.greenAccent,
+                  size: 20,
+                ),
+                SizedBox(width: 12),
+                Expanded(child: Text('Profile updated successfully!')),
+              ],
+            ),
+            duration: Duration(seconds: 3),
+            backgroundColor: primaryNavy,
+          ),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -149,8 +167,9 @@ class _EditProfileModalState extends State<EditProfileModal> {
                 controller: _nameController,
                 label: 'Full Name',
                 icon: Icons.person_rounded,
-                validator: (val) =>
-                    val == null || val.trim().isEmpty ? 'Enter your full name' : null,
+                validator: (val) => val == null || val.trim().isEmpty
+                    ? 'Enter your full name'
+                    : null,
               ),
               const SizedBox(height: 14),
 
@@ -159,8 +178,9 @@ class _EditProfileModalState extends State<EditProfileModal> {
                 controller: _badgeController,
                 label: 'Badge Number',
                 icon: Icons.badge_rounded,
-                validator: (val) =>
-                    val == null || val.trim().isEmpty ? 'Enter your badge number' : null,
+                validator: (val) => val == null || val.trim().isEmpty
+                    ? 'Enter your badge number'
+                    : null,
               ),
               const SizedBox(height: 14),
 
@@ -188,8 +208,9 @@ class _EditProfileModalState extends State<EditProfileModal> {
                 label: 'Contact Number',
                 icon: Icons.phone_rounded,
                 keyboardType: TextInputType.phone,
-                validator: (val) =>
-                    val == null || val.trim().isEmpty ? 'Enter your contact number' : null,
+                validator: (val) => val == null || val.trim().isEmpty
+                    ? 'Enter your contact number'
+                    : null,
               ),
               const SizedBox(height: 14),
 
@@ -269,8 +290,10 @@ class _EditProfileModalState extends State<EditProfileModal> {
         prefixIcon: Icon(icon, color: primaryNavy, size: 20),
         filled: true,
         fillColor: const Color(0xFFF8FAFC),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: borderSlate),
@@ -314,12 +337,17 @@ class _EditProfileModalState extends State<EditProfileModal> {
           color: Colors.grey.shade500,
         ),
         prefixIcon: Icon(icon, color: Colors.grey.shade500, size: 20),
-        suffixIcon:
-            Icon(Icons.lock_outline_rounded, size: 16, color: Colors.grey.shade400),
+        suffixIcon: Icon(
+          Icons.lock_outline_rounded,
+          size: 16,
+          color: Colors.grey.shade400,
+        ),
         filled: true,
         fillColor: Colors.grey.shade100,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         disabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey.shade300),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
-import 'edit_profile_modal.dart'; // Import modal component
+import 'edit_profile_modal.dart';
+import 'change_password_modal.dart'; // Import Change Password Modal
 
 class PoliceProfileScreen extends StatefulWidget {
   const PoliceProfileScreen({super.key});
@@ -39,7 +40,6 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
       builder: (context) => EditProfileModal(
         currentProfile: profile,
         onSave: (updatedData) async {
-          // Trigger update logic in AuthService
           return await _authService.updateUserProfile(updatedData);
         },
       ),
@@ -50,10 +50,21 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
     }
   }
 
+  void _openChangePasswordModal() async {
+    await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ChangePasswordModal(
+        onChangePassword: (newPassword) async {
+          return await _authService.changePassword(newPassword);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final user = _authService.currentUser;
-
     return Scaffold(
       backgroundColor: surfaceSlate,
       body: RefreshIndicator(
@@ -72,12 +83,12 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
             final fullName =
                 profile['full_name'] as String? ?? 'Police Officer';
             final badgeNumber = profile['badge_number'] as String? ?? 'N/A';
-            final email = user?.email ?? profile['email'] as String? ?? 'N/A';
+            final email = profile['email'] as String? ?? 'N/A';
             final phone = profile['phone_number'] as String? ?? 'N/A';
-            final address = profile['address'] as String? ??
+            final address =
+                profile['address'] as String? ??
                 'Cerezo St. Poblacion West, Asingan, Pangasinan';
-            final role =
-                (profile['role'] as String? ?? 'police').toUpperCase();
+            final role = (profile['role'] as String? ?? 'police').toUpperCase();
 
             return SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -87,7 +98,7 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
                 children: [
                   const SizedBox(height: 10),
 
-                  // Profile Header Card with Edit Action Button
+                  // Profile Header Card
                   _buildHeaderCard(
                     fullName: fullName,
                     badgeNumber: badgeNumber,
@@ -97,7 +108,7 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
 
                   const SizedBox(height: 20),
 
-                  // Account Information Details Group
+                  // Officer Information
                   _buildSectionHeader('OFFICER INFORMATION'),
                   const SizedBox(height: 10),
                   _buildInfoCard([
@@ -123,7 +134,7 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
 
                   const SizedBox(height: 20),
 
-                  // Station & Jurisdiction Group
+                  // Assignment & Location
                   _buildSectionHeader('ASSIGNMENT & LOCATION'),
                   const SizedBox(height: 10),
                   _buildInfoCard([
@@ -137,6 +148,71 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
                       icon: Icons.local_police_rounded,
                       label: 'Station',
                       value: stationName,
+                    ),
+                  ]),
+
+                  const SizedBox(height: 20),
+
+                  // Security & Account Section
+                  _buildSectionHeader('SECURITY & ACCOUNT'),
+                  const SizedBox(height: 10),
+                  _buildInfoCard([
+                    InkWell(
+                      onTap: _openChangePasswordModal,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: primaryNavy.withValues(alpha: 0.06),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                Icons.lock_reset_rounded,
+                                size: 18,
+                                color: primaryNavy,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'PASSWORD',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.grey.shade500,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  const Text(
+                                    'Change Password',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: primaryNavy,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              size: 14,
+                              color: Colors.grey.shade400,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ]),
                 ],
@@ -179,7 +255,6 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
         borderRadius: BorderRadius.circular(20),
         child: Stack(
           children: [
-            // Faded Background Badge Watermark
             Positioned(
               right: -20,
               bottom: -20,
@@ -195,8 +270,6 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
                 ),
               ),
             ),
-
-            // Top Right Edit Profile Button
             Positioned(
               top: 10,
               right: 10,
@@ -216,13 +289,10 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
                 ),
               ),
             ),
-
-            // Main Content Layout
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 children: [
-                  // Avatar + Police Logo Side-by-Side Avatar Group
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -274,9 +344,7 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 16),
-
                   Text(
                     fullName,
                     textAlign: TextAlign.center,
@@ -287,9 +355,7 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
                       letterSpacing: 0.2,
                     ),
                   ),
-
                   const SizedBox(height: 10),
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [

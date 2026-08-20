@@ -14,7 +14,6 @@ class PoliceSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AuthService authService = AuthService();
-    final user = authService.currentUser;
 
     return Scaffold(
       backgroundColor: surfaceSlate,
@@ -26,7 +25,21 @@ class PoliceSettingsScreen extends StatelessWidget {
             const SizedBox(height: 10),
 
             // Profile Quick Entry Card
-            _buildProfileCard(context, user?.email ?? 'Responder Account'),
+            // Dynamically fetch fresh profile data including verified server email
+            FutureBuilder<Map<String, dynamic>?>(
+              future: authService.getUserProfile(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return _buildProfileCard(context, 'Loading...');
+                }
+
+                final profile = snapshot.data;
+                final email =
+                    profile?['email'] as String? ?? 'Responder Account';
+
+                return _buildProfileCard(context, email);
+              },
+            ),
 
             const SizedBox(height: 24),
 
