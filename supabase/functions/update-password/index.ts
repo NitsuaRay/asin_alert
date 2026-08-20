@@ -6,6 +6,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Simple Base64URL JWT payload parser
+function parseJwt(token: string) {
+  try {
+    const base64Url = token.split('.')[1]
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    )
+    return JSON.parse(jsonPayload)
+  } catch {
+    return null
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -20,25 +37,20 @@ serve(async (req) => {
       )
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
-    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-
-    // Extract the raw JWT token from the Authorization header
     const token = authHeader.replace('Bearer ', '').trim()
-
-    // Initialize regular client
-    const userClient = createClient(supabaseUrl, supabaseAnonKey)
-
-    // Pass token explicitly into getUser()
-    const { data: { user }, error: userError } = await userClient.auth.getUser(token)
-
-    if (userError || !user) {
+    const payload = parseJwt(token)
+    
+    // Verify payload exists and contains standard user subject (sub)
+    if (!payload || !payload.sub) {
       return new Response(
-        JSON.stringify({ error: `Unauthorized user request: ${userError?.message}` }),
+        JSON.stringify({ error: 'Invalid or missing user JWT payload' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    const userId = payload.sub
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
     const { new_password } = await req.json()
     if (!new_password || new_password.length < 6) {
@@ -48,10 +60,10 @@ serve(async (req) => {
       )
     }
 
-    // Bypass updating limits using Admin Client
+    // Bypass standard updates using Admin API
     const adminClient = createClient(supabaseUrl, supabaseServiceRoleKey)
     const { error: updateError } = await adminClient.auth.admin.updateUserById(
-      user.id,
+      userId,
       { password: new_password }
     )
 

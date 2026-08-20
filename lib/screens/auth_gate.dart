@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
-import 'establishment_dashboard_screen.dart'; // Import actual establishment screen
+import 'establishment_dashboard_screen.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -32,19 +32,27 @@ class AuthGate extends StatelessWidget {
             }
 
             final profile = profileSnapshot.data;
-            final role = profile?['role'] ?? 'establishment';
 
-            if (role == 'admin') {
-              return const AdminDashboardScreen();
-            } else if (role == 'police') {
-              return const PoliceDashboardScreen();
-            } else {
-              return const EstablishmentDashboardScreen(); // Linked active screen
+            // If profile is null (session invalid/expired), route to Login
+            if (profile == null) {
+              return const LoginScreen();
+            }
+
+            final role = profile['role'];
+
+            switch (role) {
+              case 'admin':
+                return const AdminDashboardScreen();
+              case 'police':
+                return const PoliceDashboardScreen();
+              case 'establishment':
+                return const EstablishmentDashboardScreen();
+              default:
+                return const LoginScreen();
             }
           },
         );
       },
     );
   }
-
 }

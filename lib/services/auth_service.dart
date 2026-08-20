@@ -112,31 +112,28 @@ class AuthService {
     }
   }
 
-  // Change Password via Edge Function
   Future<bool> changePassword(String newPassword) async {
     try {
-      final user = currentUser;
-      if (user == null) {
-        debugPrint('Change password error: User is not authenticated.');
-        return false;
-      }
+      final email = currentUser?.email;
+      final session = _supabase.auth.currentSession;
 
+      if (email == null || session == null) return false;
+
+      // 1. Invoke Edge Function
       final response = await _supabase.functions.invoke(
         'update-password',
         body: {'new_password': newPassword},
+        headers: {'Authorization': 'Bearer ${session.accessToken}'},
       );
 
-      if (response.status != 200) {
-        final errorMsg =
-            response.data?['error'] ?? 'Failed to update password.';
-        debugPrint('Edge Function error: $errorMsg');
-        return false;
-      }
+      if (response.status != 200) return false;
 
-      // Re-fetch user to refresh session metadata
-      await _supabase.auth.getUser();
+      // 2. Re-authenticate to refresh valid session token in local storage
+      await _supabase.auth.signInWithPassword(
+        email: email,
+        password: newPassword,
+      );
 
-      debugPrint('Password updated successfully via Edge Function.');
       return true;
     } catch (e) {
       debugPrint('Error changing password: $e');

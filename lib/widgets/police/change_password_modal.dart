@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 class ChangePasswordModal extends StatefulWidget {
   final Future<bool> Function(String newPassword) onChangePassword;
 
-  const ChangePasswordModal({
-    super.key,
-    required this.onChangePassword,
-  });
+  const ChangePasswordModal({super.key, required this.onChangePassword});
 
   @override
   State<ChangePasswordModal> createState() => _ChangePasswordModalState();
@@ -44,9 +41,13 @@ class _ChangePasswordModalState extends State<ChangePasswordModal> {
 
     setState(() => _isLoading = false);
 
+    // Capture references BEFORE popping context
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
     if (success) {
-      Navigator.pop(context, true);
-      ScaffoldMessenger.of(context).showSnackBar(
+      navigator.pop(true);
+      messenger.showSnackBar(
         const SnackBar(
           content: Row(
             children: [
@@ -64,7 +65,7 @@ class _ChangePasswordModalState extends State<ChangePasswordModal> {
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text('Failed to update password. Please try again.'),
           backgroundColor: Colors.redAccent,
@@ -190,8 +191,10 @@ class _ChangePasswordModalState extends State<ChangePasswordModal> {
         labelStyle: TextStyle(color: Colors.grey.shade600, fontSize: 13),
         filled: true,
         fillColor: const Color(0xFFF8FAFC),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: borderSlate),

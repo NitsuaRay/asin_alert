@@ -1,7 +1,6 @@
 import 'package:asin_alert/services/emergency_alarm_service.dart';
 import 'package:asin_alert/services/notification_service.dart';
 import 'package:asin_alert/services/ota_service.dart';
-import 'package:asin_alert/widgets/logout_confirmation_dialog.dart';
 import 'package:asin_alert/widgets/police/emergency_card.dart';
 import 'package:asin_alert/widgets/police/emergency_detail_screen.dart';
 import 'package:asin_alert/widgets/police/police_bottom_navigation_bar.dart'; // Import navbar
@@ -168,16 +167,6 @@ class _PoliceDashboardScreenState extends State<PoliceDashboardScreen> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout_rounded, color: Colors.white),
-            tooltip: 'Log Out',
-            onPressed: () => LogoutConfirmationDialog.show(
-              context,
-              accountType: 'police responder',
-            ),
-          ),
-        ],
       ),
       body: _buildSelectedTabBody(),
       bottomNavigationBar: PoliceBottomNavigationBar(
