@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:asin_alert/services/emergency_service.dart';
 import 'package:asin_alert/services/notification_service.dart';
 import 'package:asin_alert/widgets/establishment/cancel_alert_sheet.dart';
+import 'package:asin_alert/widgets/establishment/establishment_settings_screen.dart';
 import 'package:asin_alert/widgets/establishment/panic_trigger_view.dart';
-import 'package:asin_alert/widgets/logout_confirmation_dialog.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -354,12 +354,69 @@ class _EstablishmentDashboardScreenState
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout_rounded, color: Colors.white),
-            tooltip: 'Logout',
-            onPressed: () => LogoutConfirmationDialog.show(
-              context,
-              accountType: 'establishment',
-            ),
+            icon: const Icon(Icons.settings_rounded, color: accentGold),
+            tooltip: 'Settings',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => Scaffold(
+                    appBar: AppBar(
+                      backgroundColor: primaryNavy,
+                      elevation: 2,
+                      iconTheme: const IconThemeData(color: Colors.white),
+                      title: Row(
+                        children: [
+                          Image.asset(
+                            'assets/asinLogo.png',
+                            height: 32,
+                            width: 32,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(
+                                  Icons.security,
+                                  color: accentGold,
+                                  size: 28,
+                                ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'Settings',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: accentGold.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: accentGold, width: 0.8),
+                            ),
+                            child: const Text(
+                              'ESTABLISHMENT',
+                              style: TextStyle(
+                                color: accentGold,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    body: const EstablishmentSettingsScreen(),
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),

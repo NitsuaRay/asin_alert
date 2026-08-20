@@ -4,19 +4,18 @@ import 'package:asin_alert/constants/coming_soon_dialog.dart';
 import 'package:asin_alert/constants/developer_info_page.dart';
 import 'package:asin_alert/constants/privacy_policy_page.dart';
 import 'package:asin_alert/constants/terms_condition_page.dart';
+import 'package:asin_alert/widgets/establishment/establishment_profile_screen.dart';
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../logout_confirmation_dialog.dart';
-import 'police_profile_screen.dart';
 
-class PoliceSettingsScreen extends StatelessWidget {
-  const PoliceSettingsScreen({super.key});
+class EstablishmentSettingsScreen extends StatelessWidget {
+  const EstablishmentSettingsScreen({super.key});
 
   static const Color primaryNavy = Color(0xFF0F172A);
   static const Color accentGold = Color(0xFFD97706);
   static const Color surfaceSlate = Color(0xFFF8FAFC);
   static const Color borderSlate = Color(0xFFE2E8F0);
-
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +31,6 @@ class PoliceSettingsScreen extends StatelessWidget {
             const SizedBox(height: 10),
 
             // Profile Quick Entry Card
-            // Dynamically fetch fresh profile data including verified server email
             FutureBuilder<Map<String, dynamic>?>(
               future: authService.getUserProfile(),
               builder: (context, snapshot) {
@@ -41,10 +39,12 @@ class PoliceSettingsScreen extends StatelessWidget {
                 }
 
                 final profile = snapshot.data;
-                final fullName =
-                    profile?['full_name'] as String? ?? 'Responder Account';
+                final establishmentName =
+                    profile?['establishment_name'] as String? ??
+                    profile?['full_name'] as String? ??
+                    'Establishment Account';
 
-                return _buildProfileCard(context, fullName);
+                return _buildProfileCard(context, establishmentName);
               },
             ),
 
@@ -55,9 +55,9 @@ class PoliceSettingsScreen extends StatelessWidget {
             const SizedBox(height: 8),
             _buildSettingsGroup([
               _buildSettingsTile(
-                icon: Icons.person_outline_rounded,
-                title: 'Officer Profile',
-                subtitle: 'View badge, precinct, and contact information',
+                icon: Icons.storefront_outlined,
+                title: 'Establishment Profile',
+                subtitle: 'View business details, location, and contacts',
                 onTap: () {
                   Navigator.push(
                     context,
@@ -68,7 +68,7 @@ class PoliceSettingsScreen extends StatelessWidget {
                           elevation: 0,
                           iconTheme: const IconThemeData(color: Colors.white),
                           title: const Text(
-                            'Officer Profile',
+                            'Establishment Profile',
                             style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -76,7 +76,36 @@ class PoliceSettingsScreen extends StatelessWidget {
                             ),
                           ),
                         ),
-                        body: const PoliceProfileScreen(),
+                        body: const EstablishmentProfileScreen(),
+
+                      ),
+                    ),
+                  );
+                },
+              ),
+              _buildDivider(),
+              _buildSettingsTile(
+                icon: Icons.history_rounded,
+                title: 'Emergency History',
+                subtitle: 'View logs of previous panic alerts and incidents',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => Scaffold(
+                        appBar: AppBar(
+                          backgroundColor: primaryNavy,
+                          elevation: 0,
+                          iconTheme: const IconThemeData(color: Colors.white),
+                          title: const Text(
+                            'Emergency History',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   );
@@ -86,14 +115,14 @@ class PoliceSettingsScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // Section: Support & Feedback
+            // Section: Support & Concerns
             _buildSectionHeader('SUPPORT & CONCERNS'),
             const SizedBox(height: 8),
             _buildSettingsGroup([
               _buildSettingsTile(
                 icon: Icons.headset_mic_outlined,
                 title: 'Chat Support & Hotline',
-                subtitle: 'Get direct dispatch or tech support assistance',
+                subtitle: 'Get direct emergency hotline and support access',
                 onTap: () => ComingSoonDialog.show(
                   context,
                   title: 'Chat Support & Hotline',
@@ -105,7 +134,7 @@ class PoliceSettingsScreen extends StatelessWidget {
               _buildSettingsTile(
                 icon: Icons.report_problem_outlined,
                 title: 'Report an Issue / Concern',
-                subtitle: 'Submit system bugs or alert telemetry errors',
+                subtitle: 'Submit technical bugs or alert telemetry errors',
                 onTap: () => ComingSoonDialog.show(
                   context,
                   title: 'Report an Issue / Concern',
@@ -138,7 +167,7 @@ class PoliceSettingsScreen extends StatelessWidget {
               _buildSettingsTile(
                 icon: Icons.description_outlined,
                 title: 'Terms & Conditions',
-                subtitle: 'Responder usage rules and operational protocols',
+                subtitle: 'Establishment usage rules and alert protocols',
                 onTap: () {
                   Navigator.push(
                     context,
@@ -152,7 +181,7 @@ class PoliceSettingsScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // Section: About Application
+            // Section: About System
             _buildSectionHeader('ABOUT SYSTEM'),
             const SizedBox(height: 8),
             _buildSettingsGroup([
@@ -194,7 +223,7 @@ class PoliceSettingsScreen extends StatelessWidget {
               child: ElevatedButton.icon(
                 onPressed: () => LogoutConfirmationDialog.show(
                   context,
-                  accountType: 'police responder',
+                  accountType: 'establishment',
                 ),
                 icon: const Icon(Icons.logout_rounded, size: 20),
                 label: const Text('LOG OUT ACCOUNT'),
@@ -217,7 +246,7 @@ class PoliceSettingsScreen extends StatelessWidget {
             const SizedBox(height: 24),
 
             const AppVersionDisplay(),
-            
+
             const SizedBox(height: 16),
           ],
         ),
@@ -225,7 +254,7 @@ class PoliceSettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileCard(BuildContext context, String email) {
+  Widget _buildProfileCard(BuildContext context, String title) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -251,17 +280,16 @@ class PoliceSettingsScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         child: Stack(
           children: [
-            // Background Faded Police Mobile Graphic (Right Side)
+            // Background Faded Storefront Graphic
             Positioned(
               right: -12,
               bottom: -10,
               child: Opacity(
-                opacity: 0.12, // Subtle background watermark effect
+                opacity: 0.12,
                 child: Transform.rotate(
-                  angle: -0.1, // Sleek dynamic angle tilt
+                  angle: -0.1,
                   child: const Icon(
-                    Icons
-                        .local_police_rounded, // Replace with Image.asset('assets/police_car.png') if using custom asset
+                    Icons.store_rounded,
                     size: 110,
                     color: Colors.white,
                   ),
@@ -274,7 +302,7 @@ class PoliceSettingsScreen extends StatelessWidget {
               padding: const EdgeInsets.all(18),
               child: Row(
                 children: [
-                  // Shield Avatar Container with Outer Glow Accent
+                  // Store Avatar Container with Outer Glow Accent
                   Container(
                     width: 50,
                     height: 50,
@@ -295,7 +323,7 @@ class PoliceSettingsScreen extends StatelessWidget {
                     ),
                     child: const Center(
                       child: Icon(
-                        Icons.local_police,
+                        Icons.storefront_rounded,
                         color: Colors.blue,
                         size: 24,
                       ),
@@ -312,7 +340,7 @@ class PoliceSettingsScreen extends StatelessWidget {
                         Row(
                           children: [
                             const Text(
-                              'POLICE RESPONDER',
+                              'ESTABLISHMENT',
                               style: TextStyle(
                                 color: Colors.blue,
                                 fontSize: 10,
@@ -321,7 +349,7 @@ class PoliceSettingsScreen extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            // Active Duty Status Pill
+                            // Verified Status Pill
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 6,
@@ -351,7 +379,7 @@ class PoliceSettingsScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    'ACTIVE',
+                                    'REGISTERED',
                                     style: TextStyle(
                                       color: Colors.green.shade300,
                                       fontSize: 8,
@@ -366,7 +394,7 @@ class PoliceSettingsScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          email,
+                          title.toUpperCase(),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 15,

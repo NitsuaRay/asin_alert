@@ -18,6 +18,16 @@ class EmergencyService {
     final position = await LocationService.getCurrentLocation();
     final now = DateTime.now().toUtc().toIso8601String();
 
+    // Construct default trigger note
+    final triggerNote = isSilent
+        ? 'SILENT ALARM TRIGGERED'
+        : 'EMERGENCY ALARM TRIGGERED - ${category.toUpperCase()}';
+
+    // Append user-provided notes if present
+    final finalNotes = (notes != null && notes.trim().isNotEmpty)
+        ? '$triggerNote | $notes'
+        : triggerNote;
+
     // 1. Insert emergency record
     final response = await _supabase
         .from('emergencies')
@@ -28,7 +38,7 @@ class EmergencyService {
           'latitude': position.latitude,
           'longitude': position.longitude,
           'is_silent': isSilent,
-          'notes': isSilent ? 'SILENT ALARM TRIGGERED' : notes,
+          'notes': finalNotes,
           'created_at': now,
         })
         .select()
@@ -42,7 +52,7 @@ class EmergencyService {
       'new_status': 'pending',
       'remarks': isSilent
           ? 'Silent alarm triggered'
-          : 'Emergency alert triggered',
+          : 'Emergency alarm triggered - ${category.toUpperCase()}',
       'created_at': now,
     });
 

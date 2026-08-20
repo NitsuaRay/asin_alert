@@ -1,16 +1,18 @@
+import 'package:asin_alert/widgets/establishment/change_password_modal.dart';
+import 'package:asin_alert/widgets/establishment/edit_profile_modal.dart';
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
-import 'edit_profile_modal.dart';
-import 'change_password_modal.dart'; // Import Change Password Modal
 
-class PoliceProfileScreen extends StatefulWidget {
-  const PoliceProfileScreen({super.key});
+class EstablishmentProfileScreen extends StatefulWidget {
+  const EstablishmentProfileScreen({super.key});
 
   @override
-  State<PoliceProfileScreen> createState() => _PoliceProfileScreenState();
+  State<EstablishmentProfileScreen> createState() =>
+      _EstablishmentProfileScreenState();
 }
 
-class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
+class _EstablishmentProfileScreenState
+    extends State<EstablishmentProfileScreen> {
   final AuthService _authService = AuthService();
   late Future<Map<String, dynamic>?> _profileFuture;
 
@@ -18,8 +20,6 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
   static const Color surfaceSlate = Color(0xFFF8FAFC);
   static const Color borderSlate = Color(0xFFE2E8F0);
   static const Color accentGold = Color(0xFFD97706);
-
-  static const String stationName = 'PNP Asingan Station';
 
   @override
   void initState() {
@@ -33,92 +33,69 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
     });
   }
 
-  void _openEditProfileModal(Map<String, dynamic> profile) async {
+  /// Helper to construct formatted full address
+  String _buildFullAddress(String? streetAddress, String? barangay) {
+    final List<String> parts = [];
+
+    if (streetAddress != null && streetAddress.trim().isNotEmpty) {
+      parts.add(streetAddress.trim());
+    }
+
+    if (barangay != null && barangay.trim().isNotEmpty) {
+      parts.add(
+        barangay.trim().startsWith('Brgy')
+            ? barangay.trim()
+            : 'Brgy. ${barangay.trim()}',
+      );
+    }
+
+    parts.add('Asingan, Pangasinan');
+
+    return parts.join(', ');
+  }
+
+  void _openEditProfileModal(Map<String, dynamic> currentProfile) async {
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => EditProfileModal(
-        currentProfile: profile,
-        onSave: (updatedData) async {
-          return await _authService.updateUserProfile(updatedData);
-        },
+        currentProfile: currentProfile,
+        onSave: (updatedData) => _authService.updateUserProfile(updatedData),
       ),
     );
 
-    // If successfully updated, refresh profile and show SnackBar safely on parent
+    // If update was successful, refresh the profile info
     if (result == true && mounted) {
       _fetchProfile();
-
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.check_circle_rounded, color: accentGold, size: 20),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Profile updated successfully!',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          duration: const Duration(seconds: 3),
-          backgroundColor: primaryNavy,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
+        const SnackBar(
+          content: Text('Profile updated successfully!'),
+          backgroundColor: Colors.green,
         ),
       );
     }
   }
 
   void _openChangePasswordModal() async {
-    final success = await showModalBottomSheet<bool>(
+    final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => ChangePasswordModal(
-        onChangePassword:
-            ({required currentPassword, required newPassword}) async {
-              return await _authService.changePassword(
-                currentPassword: currentPassword,
-                newPassword: newPassword,
-              );
-            },
+        onChangePassword: ({required currentPassword, required newPassword}) =>
+            _authService.changePassword(
+              currentPassword: currentPassword,
+              newPassword: newPassword,
+            ),
       ),
     );
 
-    // Only show success SnackBar if the modal returned true (success)
-    if (success == true && mounted) {
+    if (result == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.check_circle_rounded, color: accentGold, size: 20),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Password updated successfully!',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          duration: const Duration(seconds: 3),
-          backgroundColor: primaryNavy,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
+        const SnackBar(
+          content: Text('Password updated successfully!'),
+          backgroundColor: Colors.green,
         ),
       );
     }
@@ -141,15 +118,17 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
             }
 
             final profile = snapshot.data ?? {};
+
+            // Exact fields from your backend
             final fullName =
-                profile['full_name'] as String? ?? 'Police Officer';
-            final badgeNumber = profile['badge_number'] as String? ?? 'N/A';
+                profile['full_name'] as String? ?? 'Establishment Name';
             final email = profile['email'] as String? ?? 'N/A';
             final phone = profile['phone_number'] as String? ?? 'N/A';
-            final address =
-                profile['address'] as String? ??
-                'Cerezo St. Poblacion West, Asingan, Pangasinan';
-            final role = (profile['role'] as String? ?? 'police').toUpperCase();
+            final rawAddress = profile['address'] as String?;
+            final barangay = profile['barangay'] as String?;
+
+            // Formatted Full Address
+            final fullAddress = _buildFullAddress(rawAddress, barangay);
 
             return SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -159,25 +138,20 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
                 children: [
                   const SizedBox(height: 10),
 
-                  // Profile Header Card
-                  _buildHeaderCard(
-                    fullName: fullName,
-                    badgeNumber: badgeNumber,
-                    role: role,
-                    onEditPressed: () => _openEditProfileModal(profile),
-                  ),
+                  // Header Card
+                  // Header Card
+                  _buildHeaderCard(fullName: fullName, currentProfile: profile),
 
                   const SizedBox(height: 20),
 
-                  // Officer Information
-                  _buildSectionHeader('OFFICER INFORMATION'),
+                  // Business Information
+                  _buildSectionHeader('ESTABLISHMENT DETAILS'),
                   const SizedBox(height: 10),
                   _buildInfoCard([
                     _buildInfoTile(
-                      icon: Icons.badge_rounded,
-                      label: 'Badge Number',
-                      value: badgeNumber,
-                      isMonospace: true,
+                      icon: Icons.storefront_rounded,
+                      label: 'Establishment Name',
+                      value: fullName.toUpperCase(),
                     ),
                     _buildDivider(),
                     _buildInfoTile(
@@ -195,23 +169,16 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
 
                   const SizedBox(height: 20),
 
-                  // Assignment & Location
-                  _buildSectionHeader('ASSIGNMENT & LOCATION'),
+                  // Location
+                  _buildSectionHeader('LOCATION'),
                   const SizedBox(height: 10),
                   _buildInfoCard([
                     _buildInfoTile(
                       icon: Icons.location_on_rounded,
-                      label: 'Address',
-                      value: address,
-                    ),
-                    _buildDivider(),
-                    _buildInfoTile(
-                      icon: Icons.local_police_rounded,
-                      label: 'Station',
-                      value: stationName,
+                      label: 'Full Address',
+                      value: fullAddress,
                     ),
                   ]),
-
                   const SizedBox(height: 20),
 
                   // Security & Account Section
@@ -287,9 +254,7 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
 
   Widget _buildHeaderCard({
     required String fullName,
-    required String badgeNumber,
-    required String role,
-    required VoidCallback onEditPressed,
+    required Map<String, dynamic> currentProfile,
   }) {
     return Container(
       width: double.infinity,
@@ -300,10 +265,7 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.blue.withValues(alpha: 0.25),
-          width: 1,
-        ),
+        border: Border.all(color: accentGold.withValues(alpha: 0.35), width: 1),
         boxShadow: [
           BoxShadow(
             color: primaryNavy.withValues(alpha: 0.2),
@@ -316,6 +278,7 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
         borderRadius: BorderRadius.circular(20),
         child: Stack(
           children: [
+            // Background decorative watermark icon
             Positioned(
               right: -20,
               bottom: -20,
@@ -324,88 +287,75 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
                 child: Transform.rotate(
                   angle: -0.15,
                   child: const Icon(
-                    Icons.local_police_sharp,
+                    Icons.storefront_sharp,
                     size: 160,
-                    color: Colors.blue,
+                    color: accentGold,
                   ),
                 ),
               ),
             ),
-            Positioned(
-              top: 10,
-              right: 10,
-              child: IconButton(
-                onPressed: onEditPressed,
-                icon: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.edit_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ),
+
+            // Main Content
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.blue.withValues(alpha: 0.6),
-                            width: 2,
+                  // Top Row: Edit Profile Icon Button
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: Material(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => _openEditProfileModal(currentProfile),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.blue.withValues(alpha: 0.2),
-                              blurRadius: 12,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                        child: const Center(
                           child: Icon(
-                            Icons.person_rounded,
-                            size: 42,
-                            color: primaryNavy,
+                            Icons.edit_rounded,
+                            size: 20,
+                            color: Colors.white,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.blue.shade300.withValues(alpha: 0.5),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.local_police_rounded,
-                            size: 28,
-                            color: Colors.blue,
-                          ),
-                        ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Avatar / Store Icon
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: accentGold.withValues(alpha: 0.8),
+                        width: 2,
                       ),
-                    ],
+                      boxShadow: [
+                        BoxShadow(
+                          color: accentGold.withValues(alpha: 0.25),
+                          blurRadius: 12,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.store_rounded,
+                        size: 40,
+                        color: primaryNavy,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 16),
+
+                  // Establishment Name
                   Text(
                     fullName.toUpperCase(),
                     textAlign: TextAlign.center,
@@ -417,57 +367,29 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: Colors.blue.shade400.withValues(alpha: 0.4),
-                          ),
-                        ),
-                        child: Text(
-                          '$role RESPONDER',
-                          style: TextStyle(
-                            color: Colors.blue.shade300,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.7,
-                          ),
-                        ),
+
+                  // Role Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: accentGold.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: accentGold.withValues(alpha: 0.5),
                       ),
-                      if (badgeNumber != 'N/A') ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.2),
-                            ),
-                          ),
-                          child: Text(
-                            'BADGE #$badgeNumber',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.7,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                    ),
+                    child: const Text(
+                      'ESTABLISHMENT',
+                      style: TextStyle(
+                        color: accentGold,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -516,7 +438,6 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
     required IconData icon,
     required String label,
     required String value,
-    bool isMonospace = false,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -547,8 +468,7 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: TextStyle(
-                    fontFamily: isMonospace ? 'monospace' : null,
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: primaryNavy,
