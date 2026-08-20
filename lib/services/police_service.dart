@@ -1,4 +1,8 @@
+import 'dart:io';
+
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -24,10 +28,25 @@ class PoliceService {
         String? token = await _fcm.getToken();
 
         if (token != null) {
-          // Upsert device token into responder_tokens table
+          // Get device info safely depending on the platform
+          String deviceIdentifier = 'Unknown Device';
+          final deviceInfoPlugin = DeviceInfoPlugin();
+
+          if (Platform.isAndroid) {
+            final androidInfo = await deviceInfoPlugin.androidInfo;
+            deviceIdentifier =
+                '${androidInfo.brand} ${androidInfo.model}'; // e.g., "samsung SM-S918B"
+          } else if (Platform.isIOS) {
+            final iosInfo = await deviceInfoPlugin.iosInfo;
+            deviceIdentifier =
+                '${iosInfo.name} (${iosInfo.model})'; // e.g., "iPhone (iPhone 14 Pro)"
+          }
+
+          // Upsert device token and device info into responder_tokens table
           await _supabase.from('responder_tokens').upsert({
             'user_id': user.id,
             'fcm_token': token,
+            'device_info': deviceIdentifier, // Matches your table column name
             'updated_at': DateTime.now().toIso8601String(),
           }, onConflict: 'user_id');
         }
@@ -37,14 +56,55 @@ class PoliceService {
     }
   }
 
-  /// 2. Stream Active Emergencies (Realtime feed of pending, acknowledged, en_route)
+  /// 1. Atomic Claim Method to prevent two officers from claiming the same emergency
+  static Future<bool> claimEmergency(String alertId, String s) async {
+    final currentUserId = _supabase.auth.currentUser?.id;
+    if (currentUserId == null) return false;
+
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    try {
+      // Attempt update ONLY if responder_id is currently null
+      final response = await _supabase
+          .from('emergencies')
+          .update({
+            'status': 'acknowledged',
+            'responder_id': currentUserId,
+            'acknowledged_at': now,
+            'updated_at': now,
+          })
+          .eq('id', alertId)
+          .isFilter(
+            'responder_id',
+            null,
+          ) // Ensures no one else claimed it first
+          .select();
+
+      // If update returned a row, current officer won the claim
+      if (response.isNotEmpty) {
+        await _supabase.from('incident_logs').insert({
+          'emergency_id': alertId,
+          'action_by': currentUserId,
+          'previous_status': 'pending',
+          'new_status': 'acknowledged',
+          'remarks': 'Emergency claimed by officer',
+          'created_at': now,
+        });
+        return true;
+      }
+      return false; // Already claimed by another officer
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// 2. Stream ALL active emergencies enriched with Establishment & Responder details
   static Stream<List<Map<String, dynamic>>> streamActiveEmergencies() {
     return _supabase
         .from('emergencies')
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)
         .asyncMap((records) async {
-          // 1. Filter active emergencies
           final activeEmergencies = records.where((item) {
             final status = item['status'];
             return status == 'pending' ||
@@ -54,15 +114,17 @@ class PoliceService {
 
           if (activeEmergencies.isEmpty) return [];
 
-          // 2. Fetch profile info for each establishment_id
-          final enrichedEmergencies = await Future.wait(
+          return await Future.wait(
             activeEmergencies.map((emergency) async {
               final establishmentId = emergency['establishment_id'];
+              final responderId = emergency['responder_id'];
 
               String establishmentName = 'Unknown Establishment';
               String address = 'No address provided';
               String barangay = 'No barangay provided';
+              String responderName = 'Unassigned';
 
+              // Fetch Establishment Details
               if (establishmentId != null) {
                 try {
                   final profile = await _supabase
@@ -77,9 +139,22 @@ class PoliceService {
                     address = profile['address'] ?? address;
                     barangay = profile['barangay'] ?? barangay;
                   }
-                } catch (_) {
-                  // Fallback safely on query errors
-                }
+                } catch (_) {}
+              }
+
+              // Fetch Assigned Responder Details
+              if (responderId != null) {
+                try {
+                  final responder = await _supabase
+                      .from('profiles')
+                      .select('full_name')
+                      .eq('id', responderId)
+                      .maybeSingle();
+
+                  if (responder != null) {
+                    responderName = responder['full_name'] ?? responderName;
+                  }
+                } catch (_) {}
               }
 
               return {
@@ -87,12 +162,45 @@ class PoliceService {
                 'establishment_name': establishmentName,
                 'address': address,
                 'barangay': barangay,
+                'responder_name': responderName,
+                'is_my_dispatch': responderId == _supabase.auth.currentUser?.id,
               };
             }),
           );
-
-          return enrichedEmergencies;
         });
+  }
+
+  static Future<bool> releaseEmergency(String alertId) async {
+    final currentUserId = _supabase.auth.currentUser?.id;
+    if (currentUserId == null) return false;
+
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    try {
+      await _supabase
+          .from('emergencies')
+          .update({
+            'status': 'pending',
+            'responder_id': null,
+            'updated_at': now,
+          })
+          .eq('id', alertId)
+          .eq('responder_id', currentUserId);
+
+      await _supabase.from('incident_logs').insert({
+        'emergency_id': alertId,
+        'action_by': currentUserId,
+        'previous_status': 'acknowledged',
+        'new_status': 'pending',
+        'remarks': 'Responder released the emergency back to pending queue',
+        'created_at': now,
+      });
+
+      return true; // Success
+    } catch (e) {
+      debugPrint('Error releasing emergency: $e');
+      return false; // Failed
+    }
   }
 
   /// 3. Update Incident Status ('acknowledged', 'en_route', 'resolved') + Audit Log & Timestamps

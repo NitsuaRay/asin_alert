@@ -3,7 +3,7 @@ import 'package:asin_alert/services/notification_service.dart';
 import 'package:asin_alert/services/ota_service.dart';
 import 'package:asin_alert/widgets/police/emergency_card.dart';
 import 'package:asin_alert/widgets/police/emergency_detail_screen.dart';
-import 'package:asin_alert/widgets/police/police_bottom_navigation_bar.dart'; // Import navbar
+import 'package:asin_alert/widgets/police/police_bottom_navigation_bar.dart';
 import 'package:asin_alert/widgets/police/police_history_screen.dart';
 import 'package:asin_alert/widgets/police/police_settings_screen.dart';
 import 'package:asin_alert/widgets/update_dialog.dart';
@@ -21,7 +21,7 @@ class PoliceDashboardScreen extends StatefulWidget {
 
 class _PoliceDashboardScreenState extends State<PoliceDashboardScreen> {
   RealtimeChannel? _emergencySubscription;
-  int _currentTabIndex = 0; // Tracks active tab index
+  int _currentTabIndex = 0;
 
   // Branded Color Palette
   static const Color primaryNavy = Color(0xFF0F172A);
@@ -183,7 +183,7 @@ class _PoliceDashboardScreenState extends State<PoliceDashboardScreen> {
   Widget _buildSelectedTabBody() {
     switch (_currentTabIndex) {
       case 1:
-        return const PoliceHistoryScreen(); // 👈 Render History Screen Here
+        return const PoliceHistoryScreen();
       case 2:
         return const PoliceSettingsScreen();
       case 0:
@@ -204,15 +204,15 @@ class _PoliceDashboardScreenState extends State<PoliceDashboardScreen> {
 
         final emergencies = snapshot.data ?? [];
 
+        // Stop alarm if no UNCLAIMED pending alerts exist
         final hasPendingAlerts = emergencies.any((e) {
           final status = e['status'] ?? 'pending';
-          return status == 'pending';
+          final responderId = e['responder_id'];
+          return status == 'pending' && responderId == null;
         });
 
         if (!hasPendingAlerts) {
           EmergencyAlarmService.stopAlarm();
-        } else {
-          EmergencyAlarmService.startAlarm();
         }
 
         if (emergencies.isEmpty) {

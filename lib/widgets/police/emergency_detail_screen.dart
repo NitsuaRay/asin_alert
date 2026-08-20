@@ -56,9 +56,10 @@ class EmergencyDetailScreen extends StatelessWidget {
 
   Map<String, dynamic> _getStatusStyle(String status) {
     switch (status.toLowerCase()) {
+      case 'claimed':
       case 'acknowledged':
         return {
-          'label': 'ACKNOWLEDGED',
+          'label': 'CLAIMED',
           'color': accentGold,
           'bgColor': const Color(0xFFFFFBEB),
         };
@@ -83,36 +84,251 @@ class EmergencyDetailScreen extends StatelessWidget {
     }
   }
 
-  String _formatReadableDate(String rawDate) {
-    if (rawDate.isEmpty) return '';
-    final parsed = DateTime.tryParse(rawDate)?.toLocal();
-    if (parsed == null) return rawDate;
-
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-
-    final month = months[parsed.month - 1];
-    final day = parsed.day;
-    final year = parsed.year;
-    final hour = parsed.hour % 12 == 0 ? 12 : parsed.hour % 12;
-    final minute = parsed.minute.toString().padLeft(2, '0');
-    final period = parsed.hour >= 12 ? 'PM' : 'AM';
-
-    return '$month $day, $year • $hour:$minute $period';
+  /// Custom Floating Feedback SnackBar
+  void _showFeedbackSnackBar(
+    BuildContext context, {
+    required String message,
+    required bool isError,
+  }) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isError
+                  ? Icons.error_outline_rounded
+                  : Icons.check_circle_rounded,
+              color: isError ? Colors.white : accentGold,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: isError ? Colors.red.shade700 : primaryNavy,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
+  String _formatReadableDate(String dateStr) {
+    if (dateStr.isEmpty) return '';
+
+    try {
+      final dateTime = DateTime.parse(dateStr).toLocal();
+      final now = DateTime.now();
+
+      final hour = dateTime.hour > 12
+          ? dateTime.hour - 12
+          : (dateTime.hour == 0 ? 12 : dateTime.hour);
+      final minute = dateTime.minute.toString().padLeft(2, '0');
+      final period = dateTime.hour >= 12 ? 'PM' : 'AM';
+      final timeStr = '$hour:$minute $period';
+
+      // Show "Today at 3:45 PM" if it occurred today
+      if (dateTime.year == now.year &&
+          dateTime.month == now.month &&
+          dateTime.day == now.day) {
+        return 'Today at $timeStr';
+      }
+
+      const monthNames = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      final month = monthNames[dateTime.month - 1];
+
+      return '$month ${dateTime.day}, ${dateTime.year} • $timeStr';
+    } catch (_) {
+      return dateStr;
+    }
+  }
+
+  /// Action: Claim Emergency
+  Future<void> _claimEmergency(BuildContext context, String alertId) async {
+    await EmergencyAlarmService.stopAlarm();
+
+    // Extract responder ID from current user session or alert map
+    final String responderId = alert['responder_id']?.toString() ?? '';
+
+    bool success = await PoliceService.claimEmergency(alertId, responderId);
+
+    if (context.mounted) {
+      _showFeedbackSnackBar(
+        context,
+        message: success
+            ? 'Emergency claimed successfully.'
+            : 'Failed to claim emergency.',
+        isError: !success,
+      );
+    }
+  }
+
+  /// Action: Confirm & Release Emergency
+  Future<void> _confirmRelease(BuildContext context, String alertId) async {
+    final bool? confirm = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCBD5E1),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.red.shade100),
+                  ),
+                  child: Icon(
+                    Icons.assignment_return_rounded,
+                    color: Colors.red.shade700,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Release Emergency?',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: primaryNavy,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'ACTION REQUIRED',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: accentGold,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'This will remove you as the assigned responder and place the alert back into the pending queue for other officers.',
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.45,
+                color: Color(0xFF475569),
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primaryNavy,
+                      backgroundColor: const Color(0xFFF8FAFC),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      textStyle: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    child: const Text('CANCEL'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(ctx).pop(true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade700,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      textStyle: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    child: const Text('RELEASE'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirm == true && context.mounted) {
+      bool success = await PoliceService.releaseEmergency(alertId);
+      if (!context.mounted) return;
+
+      _showFeedbackSnackBar(
+        context,
+        message: success
+            ? 'Emergency released back to pending queue.'
+            : 'Failed to release emergency.',
+        isError: !success,
+      );
+    }
+  }
+
+  /// Action: Progress Emergency Status
   Future<void> _updateStatus(
     BuildContext context, {
     required String emergencyId,
@@ -129,13 +345,11 @@ class EmergencyDetailScreen extends StatelessWidget {
     );
 
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
+      _showFeedbackSnackBar(
+        context,
+        message:
             'Status updated to ${newStatus.replaceAll('_', ' ').toUpperCase()}',
-          ),
-          backgroundColor: primaryNavy,
-        ),
+        isError: false,
       );
     }
   }
@@ -167,12 +381,29 @@ class EmergencyDetailScreen extends StatelessWidget {
               ? snapshot.data!
               : alert;
 
-          final String status = currentAlert['status'] ?? 'pending';
+          final String rawStatus = (currentAlert['status'] ?? 'pending')
+              .toString()
+              .toLowerCase()
+              .trim();
           final String category = (currentAlert['category'] ?? 'police')
               .toString();
           final String notes = currentAlert['notes'] ?? '';
 
-          // Matched with PoliceService enrichment keys
+          // Responder & Dispatch status checks
+          final String? rawResponder = currentAlert['responder_id']
+              ?.toString()
+              .trim();
+          final String? responderId =
+              (rawResponder == null ||
+                  rawResponder.isEmpty ||
+                  rawResponder == 'null')
+              ? null
+              : rawResponder;
+
+          final String? responderName = alert['responder_name']?.toString();
+
+          final bool isMyDispatch = alert['is_my_dispatch'] == true;
+
           final profileObj =
               currentAlert['profiles'] ??
               currentAlert['profile'] ??
@@ -190,12 +421,10 @@ class EmergencyDetailScreen extends StatelessWidget {
               currentAlert['address'] ??
               (profileObj is Map ? profileObj['address'] : null) ??
               '';
-
           final String barangay =
               currentAlert['barangay'] ??
               (profileObj is Map ? profileObj['barangay'] : null) ??
               '';
-
           final String phone =
               currentAlert['phone_number'] ??
               currentAlert['phone'] ??
@@ -230,7 +459,7 @@ class EmergencyDetailScreen extends StatelessWidget {
               currentAlert['is_silent'] == 'true' ||
               notes.toUpperCase().contains('SILENT');
 
-          final statusStyle = _getStatusStyle(status);
+          final statusStyle = _getStatusStyle(rawStatus);
 
           return Column(
             children: [
@@ -240,7 +469,17 @@ class EmergencyDetailScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildHeaderCard(status, category, statusStyle, isSilent),
+                      _buildHeaderCard(
+                        status: rawStatus,
+                        category: category,
+                        statusStyle: statusStyle,
+                        isSilent: isSilent,
+                        alertId: emergencyId,
+                        responderId:
+                            responderId, // Pass responder_id column from emergency data
+                        responderName: responderName,
+                        isMyDispatch: isMyDispatch,
+                      ),
                       const SizedBox(height: 16),
                       _buildEstablishmentCard(
                         establishmentName: establishmentName,
@@ -259,8 +498,16 @@ class EmergencyDetailScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              if (status != 'resolved')
-                _buildBottomActionBar(context, emergencyId, status, lat, lng),
+              if (rawStatus != 'resolved')
+                _buildBottomActionBar(
+                  context,
+                  emergencyId: emergencyId,
+                  status: rawStatus,
+                  responderId: responderId,
+                  isMyDispatch: isMyDispatch,
+                  lat: lat,
+                  lng: lng,
+                ),
             ],
           );
         },
@@ -268,18 +515,27 @@ class EmergencyDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeaderCard(
-    String status,
-    String category,
-    Map<String, dynamic> statusStyle,
-    bool isSilent,
-  ) {
+  Widget _buildHeaderCard({
+    required String status,
+    required String category,
+    required Map<String, dynamic> statusStyle,
+    required bool isSilent,
+    required String? responderId,
+    required String? alertId,
+    required String? responderName,
+    bool isMyDispatch = false,
+  }) {
     final categoryStyle = _getCategoryStyle(category);
     final statusColor = statusStyle['color'] as Color? ?? primaryNavy;
     final statusBg =
         statusStyle['bgColor'] as Color? ?? const Color(0xFFF1F5F9);
     final statusLabel = (statusStyle['label'] as String? ?? status)
         .toUpperCase();
+
+    // Compute displayName once at top level with fallback options
+    final displayName = (responderName != null && responderName.isNotEmpty)
+        ? responderName
+        : (isMyDispatch ? 'You' : 'Another Officer');
 
     return Container(
       width: double.infinity,
@@ -434,6 +690,92 @@ class EmergencyDetailScreen extends StatelessWidget {
               ),
             ],
           ),
+
+          // Responder Claim/Release Status Banner
+          const SizedBox(height: 16),
+          if (responderId != null && responderId.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: isMyDispatch
+                    ? const Color(0xFFEFF6FF)
+                    : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isMyDispatch
+                      ? const Color(0xFFBFDBFE)
+                      : const Color(0xFFE2E8F0),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.badge_rounded,
+                    size: 18,
+                    color: isMyDispatch ? royalBlue : const Color(0xFF64748B),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isMyDispatch
+                              ? 'CLAIMED BY YOU'
+                              : 'ASSIGNED RESPONDER',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: isMyDispatch
+                                ? royalBlue
+                                : const Color(0xFF64748B),
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          displayName,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: isMyDispatch ? royalBlue : primaryNavy,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 18,
+                    color: accentGold,
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'UNCLAIMED — Ready for Dispatch',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: accentGold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -861,15 +1203,65 @@ class EmergencyDetailScreen extends StatelessWidget {
         StreamBuilder<List<Map<String, dynamic>>>(
           stream: PoliceService.streamIncidentLogs(emergencyId),
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            // 1. Show Loading Animation while waiting for stream or before first data emit
+            if (snapshot.connectionState == ConnectionState.waiting ||
+                !snapshot.hasData) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 20,
+                  horizontal: 16,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(primaryNavy),
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Text(
+                      'Loading activity logs...',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            // 2. Handle Stream Errors gracefully
+            if (snapshot.hasError) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFCA5A5)),
+                ),
+                child: const Text(
+                  'Unable to load activity logs.',
+                  style: TextStyle(color: Color(0xFFDC2626), fontSize: 13),
+                ),
               );
             }
 
             final logs = snapshot.data ?? [];
 
+            // 3. Show Empty State only after confirming data exists and length is 0
             if (logs.isEmpty) {
               return Container(
                 width: double.infinity,
@@ -954,8 +1346,9 @@ class EmergencyDetailScreen extends StatelessWidget {
                             color: statusStyle['bgColor'] as Color,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: (statusStyle['color'] as Color)
-                                  .withValues(alpha: .3),
+                              color: (statusStyle['color'] as Color).withValues(
+                                alpha: .3,
+                              ),
                             ),
                           ),
                           child: Text(
@@ -981,21 +1374,114 @@ class EmergencyDetailScreen extends StatelessWidget {
   }
 
   Widget _buildBottomActionBar(
-    BuildContext context,
-    String emergencyId,
-    String currentStatus,
-    double lat,
-    double lng,
-  ) {
+    BuildContext context, {
+    required String emergencyId,
+    required String status,
+    String? responderId,
+    bool isMyDispatch = false,
+    required double lat,
+    required double lng,
+  }) {
+    // 1. UNCLAIMED STATE: Show Claim Button
+    if (responderId == null || responderId.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: royalBlue,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
+              ),
+              icon: const Icon(Icons.front_hand_rounded, color: Colors.white),
+              label: const Text(
+                'CLAIM EMERGENCY',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              onPressed: () => _claimEmergency(context, emergencyId),
+            ),
+          ),
+        ),
+      );
+    }
+    // 2. CLAIMED BY ANOTHER OFFICER
+    if (!isMyDispatch) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Container(
+            width: double.infinity,
+            height: 50,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.lock_outline_rounded,
+                  color: Color(0xFF64748B),
+                  size: 18,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'CLAIMED BY ANOTHER OFFICER',
+                  style: TextStyle(
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 3. CLAIMED BY YOU: Show Status Progression & Release Options
     String actionLabel = 'ACKNOWLEDGE';
     Color actionColor = accentGold;
     String nextStatus = 'acknowledged';
 
-    if (currentStatus == 'acknowledged') {
+    if (status == 'acknowledged') {
       actionLabel = 'SET EN ROUTE';
       actionColor = royalBlue;
       nextStatus = 'en_route';
-    } else if (currentStatus == 'en_route') {
+    } else if (status == 'en_route') {
       actionLabel = 'MARK RESOLVED';
       actionColor = Colors.green.shade700;
       nextStatus = 'resolved';
@@ -1014,34 +1500,75 @@ class EmergencyDetailScreen extends StatelessWidget {
         ],
       ),
       child: SafeArea(
-        child: SizedBox(
-          width: double.infinity,
-          height: 50,
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: actionColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+        child: Row(
+          children: [
+            // Release Button
+            Expanded(
+              child: SizedBox(
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: () => _confirmRelease(context, emergencyId),
+                  icon: const Icon(Icons.undo_rounded, size: 18),
+                  label: const Text(
+                    'RELEASE',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFDC2626),
+                    backgroundColor: const Color(0xFFFEF2F2),
+                    side: const BorderSide(
+                      color: Color(0xFFFCA5A5),
+                      width: 1.2,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
               ),
-              elevation: 2,
             ),
-            icon: const Icon(Icons.check_circle_outline, color: Colors.white),
-            label: Text(
-              actionLabel,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                letterSpacing: 0.5,
+            const SizedBox(width: 12),
+
+            // Primary Status Action Button
+            Expanded(
+              child: SizedBox(
+                height: 50,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: actionColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                  ),
+                  icon: const Icon(
+                    Icons.check_circle_outline,
+                    color: Colors.white,
+                  ),
+                  label: Text(
+                    actionLabel,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  onPressed: () => _updateStatus(
+                    context,
+                    emergencyId: emergencyId,
+                    currentStatus: status,
+                    newStatus: nextStatus,
+                  ),
+                ),
               ),
             ),
-            onPressed: () => _updateStatus(
-              context,
-              emergencyId: emergencyId,
-              currentStatus: currentStatus,
-              newStatus: nextStatus,
-            ),
-          ),
+          ],
         ),
       ),
     );

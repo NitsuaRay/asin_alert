@@ -112,14 +112,29 @@ class AuthService {
     }
   }
 
-  Future<bool> changePassword(String newPassword) async {
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
     try {
       final email = currentUser?.email;
+      if (email == null) return false;
+
+      // 1. Verify current password against Supabase Auth
+      try {
+        await _supabase.auth.signInWithPassword(
+          email: email,
+          password: currentPassword,
+        );
+      } on AuthException catch (e) {
+        debugPrint('Invalid current password: ${e.message}');
+        return false; // Rejection stops execution if current password is wrong
+      }
+
       final session = _supabase.auth.currentSession;
+      if (session == null) return false;
 
-      if (email == null || session == null) return false;
-
-      // 1. Invoke Edge Function
+      // 2. Invoke Edge Function to update password
       final response = await _supabase.functions.invoke(
         'update-password',
         body: {'new_password': newPassword},
@@ -128,7 +143,7 @@ class AuthService {
 
       if (response.status != 200) return false;
 
-      // 2. Re-authenticate to refresh valid session token in local storage
+      // 3. Re-authenticate to refresh valid session token in local storage
       await _supabase.auth.signInWithPassword(
         email: email,
         password: newPassword,

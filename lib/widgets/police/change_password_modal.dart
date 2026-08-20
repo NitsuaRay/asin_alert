@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 class ChangePasswordModal extends StatefulWidget {
-  final Future<bool> Function(String newPassword) onChangePassword;
+  final Future<bool> Function({
+    required String currentPassword,
+    required String newPassword,
+  }) onChangePassword;
 
   const ChangePasswordModal({super.key, required this.onChangePassword});
 
@@ -11,18 +14,22 @@ class ChangePasswordModal extends StatefulWidget {
 
 class _ChangePasswordModalState extends State<ChangePasswordModal> {
   final _formKey = GlobalKey<FormState>();
+  final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
+  bool _obscureCurrent = true;
   bool _obscureNew = true;
   bool _obscureConfirm = true;
   bool _isLoading = false;
+  String? _errorMessage; // Tracks error state for the inline banner
 
   static const Color primaryNavy = Color(0xFF0F172A);
   static const Color borderSlate = Color(0xFFE2E8F0);
 
   @override
   void dispose() {
+    _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -31,46 +38,28 @@ class _ChangePasswordModalState extends State<ChangePasswordModal> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null; // Clear previous errors on new attempt
+    });
 
     final success = await widget.onChangePassword(
-      _newPasswordController.text.trim(),
+      currentPassword: _currentPasswordController.text.trim(),
+      newPassword: _newPasswordController.text.trim(),
     );
 
     if (!mounted) return;
 
     setState(() => _isLoading = false);
 
-    // Capture references BEFORE popping context
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-
     if (success) {
-      navigator.pop(true);
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                Icons.check_circle_rounded,
-                color: Colors.greenAccent,
-                size: 20,
-              ),
-              SizedBox(width: 12),
-              Expanded(child: Text('Password updated successfully!')),
-            ],
-          ),
-          duration: Duration(seconds: 3),
-          backgroundColor: primaryNavy,
-        ),
-      );
+      // Close modal and return true on success
+      Navigator.of(context).pop(true);
     } else {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Failed to update password. Please try again.'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      // Keep modal open and show inline error message
+      setState(() {
+        _errorMessage = 'Failed to update password. Check your current password and try again.';
+      });
     }
   }
 
@@ -111,6 +100,54 @@ class _ChangePasswordModalState extends State<ChangePasswordModal> {
                 ),
               ),
               const SizedBox(height: 20),
+
+              // --- INLINE ERROR BANNER ---
+              if (_errorMessage != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    border: Border.all(color: Colors.red.shade200),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.error_outline_rounded,
+                        color: Colors.red.shade700,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: TextStyle(
+                            color: Colors.red.shade800,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              _buildPasswordField(
+                controller: _currentPasswordController,
+                label: 'Current Password',
+                obscureText: _obscureCurrent,
+                onToggleObscure: () =>
+                    setState(() => _obscureCurrent = !_obscureCurrent),
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter your current password';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 14),
               _buildPasswordField(
                 controller: _newPasswordController,
                 label: 'New Password',
@@ -120,6 +157,9 @@ class _ChangePasswordModalState extends State<ChangePasswordModal> {
                 validator: (val) {
                   if (val == null || val.length < 6) {
                     return 'Password must be at least 6 characters';
+                  }
+                  if (val.trim() == _currentPasswordController.text.trim()) {
+                    return 'New password cannot be the same as current password';
                   }
                   return null;
                 },

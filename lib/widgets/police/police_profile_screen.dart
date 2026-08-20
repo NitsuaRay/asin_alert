@@ -17,6 +17,7 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
   static const Color primaryNavy = Color(0xFF0F172A);
   static const Color surfaceSlate = Color(0xFFF8FAFC);
   static const Color borderSlate = Color(0xFFE2E8F0);
+  static const Color accentGold = Color(0xFFD97706);
 
   static const String stationName = 'PNP Asingan Station';
 
@@ -45,22 +46,82 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
       ),
     );
 
-    if (result == true) {
+    // If successfully updated, refresh profile and show SnackBar safely on parent
+    if (result == true && mounted) {
       _fetchProfile();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: accentGold, size: 20),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Profile updated successfully!',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          duration: const Duration(seconds: 3),
+          backgroundColor: primaryNavy,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
     }
   }
 
   void _openChangePasswordModal() async {
-    await showModalBottomSheet<bool>(
+    final success = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => ChangePasswordModal(
-        onChangePassword: (newPassword) async {
-          return await _authService.changePassword(newPassword);
-        },
+        onChangePassword:
+            ({required currentPassword, required newPassword}) async {
+              return await _authService.changePassword(
+                currentPassword: currentPassword,
+                newPassword: newPassword,
+              );
+            },
       ),
     );
+
+    // Only show success SnackBar if the modal returned true (success)
+    if (success == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: accentGold, size: 20),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Password updated successfully!',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          duration: const Duration(seconds: 3),
+          backgroundColor: primaryNavy,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
   }
 
   @override

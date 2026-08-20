@@ -1,3 +1,9 @@
+import 'package:asin_alert/widgets/app_version_display/app_version_display.dart';
+import 'package:asin_alert/widgets/police/settings_tab/about_app_page.dart';
+import 'package:asin_alert/widgets/police/settings_tab/coming_soon_dialog.dart';
+import 'package:asin_alert/widgets/police/settings_tab/developer_info_page.dart';
+import 'package:asin_alert/widgets/police/settings_tab/privacy_policy_page.dart';
+import 'package:asin_alert/widgets/police/settings_tab/terms_condition_page.dart';
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../logout_confirmation_dialog.dart';
@@ -10,6 +16,7 @@ class PoliceSettingsScreen extends StatelessWidget {
   static const Color accentGold = Color(0xFFD97706);
   static const Color surfaceSlate = Color(0xFFF8FAFC);
   static const Color borderSlate = Color(0xFFE2E8F0);
+
 
   @override
   Widget build(BuildContext context) {
@@ -34,10 +41,10 @@ class PoliceSettingsScreen extends StatelessWidget {
                 }
 
                 final profile = snapshot.data;
-                final email =
-                    profile?['email'] as String? ?? 'Responder Account';
+                final fullName =
+                    profile?['full_name'] as String? ?? 'Responder Account';
 
-                return _buildProfileCard(context, email);
+                return _buildProfileCard(context, fullName);
               },
             ),
 
@@ -87,11 +94,11 @@ class PoliceSettingsScreen extends StatelessWidget {
                 icon: Icons.headset_mic_outlined,
                 title: 'Chat Support & Hotline',
                 subtitle: 'Get direct dispatch or tech support assistance',
-                onTap: () => _showDialog(
+                onTap: () => ComingSoonDialog.show(
                   context,
-                  title: 'Support & Hotline',
-                  content:
-                      'For immediate technical or dispatch support, contact our administrator hotline at +63 (075) 555-0199 or email support@asin-alert.ph.',
+                  title: 'Chat Support & Hotline',
+                  description:
+                      'Direct in-app chat support and emergency hotlines are currently under development and will be available in the upcoming system update.',
                 ),
               ),
               _buildDivider(),
@@ -99,11 +106,11 @@ class PoliceSettingsScreen extends StatelessWidget {
                 icon: Icons.report_problem_outlined,
                 title: 'Report an Issue / Concern',
                 subtitle: 'Submit system bugs or alert telemetry errors',
-                onTap: () => _showDialog(
+                onTap: () => ComingSoonDialog.show(
                   context,
-                  title: 'Report Concern',
-                  content:
-                      'Send issue logs or report dispatch anomalies directly to your system administrator.',
+                  title: 'Report an Issue / Concern',
+                  description:
+                      'Automated bug reporting and telemetry error logs submission will be enabled in a future release.',
                 ),
               ),
             ]),
@@ -118,24 +125,28 @@ class PoliceSettingsScreen extends StatelessWidget {
                 icon: Icons.privacy_tip_outlined,
                 title: 'Privacy Policy',
                 subtitle: 'Data protection and incident telemetry policies',
-                onTap: () => _showDialog(
-                  context,
-                  title: 'Privacy Policy',
-                  content:
-                      'A.S.I.N. Alert enforces end-to-end telemetry encryption for location data and user alerts. Data processed is strictly strictly restricted for emergency response purposes.',
-                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const PrivacyPolicyPage(),
+                    ),
+                  );
+                },
               ),
               _buildDivider(),
               _buildSettingsTile(
                 icon: Icons.description_outlined,
                 title: 'Terms & Conditions',
                 subtitle: 'Responder usage rules and operational protocols',
-                onTap: () => _showDialog(
-                  context,
-                  title: 'Terms & Conditions',
-                  content:
-                      'By using ASIN Alert as a authorized responder, you agree to respond promptly to distress signals and follow standard police dispatch protocol.',
-                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TermsConditionsPage(),
+                    ),
+                  );
+                },
               ),
             ]),
 
@@ -149,24 +160,28 @@ class PoliceSettingsScreen extends StatelessWidget {
                 icon: Icons.info_outline_rounded,
                 title: 'About ASIN Alert',
                 subtitle: 'Municipal Emergency Alert & Response System',
-                onTap: () => _showDialog(
-                  context,
-                  title: 'About ASIN Alert',
-                  content:
-                      'A.S.I.N. Alert (Advanced System for Incident Notification) is designed to streamline real-time panic response between local establishments and emergency dispatch units.',
-                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AboutAppPage(),
+                    ),
+                  );
+                },
               ),
               _buildDivider(),
               _buildSettingsTile(
                 icon: Icons.code_rounded,
                 title: 'Developer Information',
                 subtitle: 'Built for municipal emergency service operations',
-                onTap: () => _showDialog(
-                  context,
-                  title: 'Developer Info',
-                  content:
-                      'Developed and maintained for ASIN Alert Emergency Network Services.\n\nVersion 1.0.0 (Build 2026)',
-                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const DeveloperInfoPage(),
+                    ),
+                  );
+                },
               ),
             ]),
 
@@ -201,18 +216,8 @@ class PoliceSettingsScreen extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            // App Version Footer
-            const Center(
-              child: Text(
-                'ASIN ALERT RESPONDER v1.0.0',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF94A3B8),
-                  letterSpacing: 0.8,
-                ),
-              ),
-            ),
+            const AppVersionDisplay(),
+            
             const SizedBox(height: 16),
           ],
         ),
@@ -449,39 +454,5 @@ class PoliceSettingsScreen extends StatelessWidget {
 
   Widget _buildDivider() {
     return Divider(height: 1, thickness: 1, color: Colors.grey.shade100);
-  }
-
-  void _showDialog(
-    BuildContext context, {
-    required String title,
-    required String content,
-  }) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          title,
-          style: const TextStyle(
-            color: primaryNavy,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
-        ),
-        content: Text(
-          content,
-          style: const TextStyle(color: Color(0xFF475569), fontSize: 13),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'CLOSE',
-              style: TextStyle(color: accentGold, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

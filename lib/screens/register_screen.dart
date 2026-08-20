@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../constants/legal_contents.dart';
 import '../services/auth_service.dart';
 
@@ -60,7 +61,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final String finalAddress = _selectedRole == 'police'
-        ? 'PNP Asingan Station, Poblacion West'
+        ? 'Cerezo St Poblacion West, Asingan, Pangasinan'
         : _addressController.text.trim();
 
     final String finalBarangay = _selectedRole == 'police'
@@ -84,28 +85,51 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Registration successful! You can now log in.'),
-            backgroundColor: primaryNavy,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        _showSnackBar('Registration successful! You can now log in.');
         Navigator.pop(context);
+      }
+    } on AuthException catch (e) {
+      if (mounted) {
+        _showSnackBar(e.message, isError: true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Registration Failed: ${e.toString()}'),
-            backgroundColor: Colors.red.shade700,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        _showSnackBar('Registration Failed: ${e.toString()}', isError: true);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isError
+                  ? Icons.error_outline_rounded
+                  : Icons.check_circle_rounded,
+              color: isError ? Colors.white : accentGold,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: isError ? Colors.red.shade700 : primaryNavy,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
   void _showLegalModal(String title, String content, IconData icon) {
@@ -306,7 +330,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF0F172A).withValues(alpha: 0.06),
+                          color: const Color(
+                            0xFF0F172A,
+                          ).withValues(alpha: 0.06),
                           blurRadius: 16,
                           offset: const Offset(0, 6),
                         ),
@@ -342,7 +368,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               SizedBox(height: 2),
                               Text(
-                                'PNP Asingan Official Emergency Network',
+                                'PNP Asingan Security & Incident Notifier',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: Color(0xFF64748B),
@@ -369,7 +395,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF0F172A).withValues(alpha: 0.08),
+                          color: const Color(
+                            0xFF0F172A,
+                          ).withValues(alpha: 0.08),
                           blurRadius: 24,
                           offset: const Offset(0, 8),
                         ),

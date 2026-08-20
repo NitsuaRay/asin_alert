@@ -28,10 +28,10 @@ class _EditProfileModalState extends State<EditProfileModal> {
       'Cerezo St. Poblacion West, Asingan, Pangasinan';
 
   bool _isSaving = false;
+  String? _errorMessage; // Tracks error for inline banner
 
   static const Color primaryNavy = Color(0xFF0F172A);
   static const Color borderSlate = Color(0xFFE2E8F0);
-  // static const Color accentGold = Color(0xFFD97706);
 
   @override
   void initState() {
@@ -62,7 +62,10 @@ class _EditProfileModalState extends State<EditProfileModal> {
   Future<void> _handleSave() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isSaving = true);
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null; // Clear previous errors
+    });
 
     final updatedData = {
       'full_name': _nameController.text.trim(),
@@ -75,35 +78,18 @@ class _EditProfileModalState extends State<EditProfileModal> {
 
     final success = await widget.onSave(updatedData);
 
-    if (mounted) {
-      setState(() => _isSaving = false);
-      if (success) {
-        Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(
-                  Icons.check_circle_rounded,
-                  color: Colors.greenAccent,
-                  size: 20,
-                ),
-                SizedBox(width: 12),
-                Expanded(child: Text('Profile updated successfully!')),
-              ],
-            ),
-            duration: Duration(seconds: 3),
-            backgroundColor: primaryNavy,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to update profile. Please try again.'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
+    if (!mounted) return;
+
+    setState(() => _isSaving = false);
+
+    if (success) {
+      // ONLY close modal and return true on success
+      Navigator.pop(context, true);
+    } else {
+      // Keep modal open on error and display inline banner message
+      setState(() {
+        _errorMessage = 'Failed to update profile. Please try again.';
+      });
     }
   }
 
@@ -161,6 +147,38 @@ class _EditProfileModalState extends State<EditProfileModal> {
               ),
               const Divider(color: borderSlate, height: 1),
               const SizedBox(height: 20),
+
+              if (_errorMessage != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    border: Border.all(color: Colors.red.shade200),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.error_outline_rounded,
+                        color: Colors.red.shade700,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: TextStyle(
+                            color: Colors.red.shade800,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // Full Name Input
               _buildTextField(
