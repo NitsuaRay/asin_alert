@@ -347,7 +347,7 @@ class IncidentLogsModal extends StatelessWidget {
                         ),
                         Expanded(
                           child: Text(
-                            responderName,
+                            responderName.toUpperCase(),
                             style: const TextStyle(
                               fontSize: 11,
                               color: primaryNavy,

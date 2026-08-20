@@ -1,5 +1,4 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -11,10 +10,7 @@ class PoliceService {
   static Future<void> registerResponderToken() async {
     try {
       final user = _supabase.auth.currentUser;
-      if (user == null) {
-        debugPrint('⚠️ Cannot register FCM token: No logged-in user found.');
-        return;
-      }
+      if (user == null) return;
 
       // Request notification permissions
       NotificationSettings settings = await _fcm.requestPermission(
@@ -23,30 +19,21 @@ class PoliceService {
         sound: true,
       );
 
-      debugPrint('FCM Authorization Status: ${settings.authorizationStatus}');
-
       if (settings.authorizationStatus == AuthorizationStatus.authorized ||
           settings.authorizationStatus == AuthorizationStatus.provisional) {
         String? token = await _fcm.getToken();
-        debugPrint('🔑 FCM Token retrieved: $token');
 
         if (token != null) {
           // Upsert device token into responder_tokens table
-          final response = await _supabase.from('responder_tokens').upsert({
+          await _supabase.from('responder_tokens').upsert({
             'user_id': user.id,
             'fcm_token': token,
             'updated_at': DateTime.now().toIso8601String(),
-          }, onConflict: 'user_id').select();
-
-          debugPrint(
-            '✅ Responder token successfully saved to Supabase: $response',
-          );
+          }, onConflict: 'user_id');
         }
-      } else {
-        debugPrint('❌ FCM Permission denied by user.');
       }
-    } catch (e) {
-      debugPrint('❌ Error registering responder FCM token: $e');
+    } catch (_) {
+      // Fallback safely if token registration fails
     }
   }
 
@@ -80,9 +67,7 @@ class PoliceService {
                 try {
                   final profile = await _supabase
                       .from('profiles')
-                      .select(
-                        'full_name, address, barangay',
-                      ) // 👈 Using full_name column
+                      .select('full_name, address, barangay')
                       .eq('id', establishmentId)
                       .maybeSingle();
 
@@ -92,10 +77,8 @@ class PoliceService {
                     address = profile['address'] ?? address;
                     barangay = profile['barangay'] ?? barangay;
                   }
-                } catch (e) {
-                  debugPrint(
-                    '❌ [Stream] Profile lookup error for $establishmentId: $e',
-                  );
+                } catch (_) {
+                  // Fallback safely on query errors
                 }
               }
 
@@ -153,57 +136,75 @@ class PoliceService {
             remarks ?? 'Status updated to ${newStatus.replaceAll('_', ' ')}',
         'created_at': now,
       });
-
-      debugPrint('✅ Status successfully updated to: $newStatus');
-    } catch (e) {
-      debugPrint('❌ Error updating emergency status: $e');
+    } catch (_) {
       rethrow;
     }
   }
 
-  /// 4. Stream single emergency by ID (for detail view)
+  /// 1. Stream single Emergency with profile enrichment
   static Stream<Map<String, dynamic>> streamEmergency(String emergencyId) {
     return _supabase
         .from('emergencies')
         .stream(primaryKey: ['id'])
         .eq('id', emergencyId)
-        .map((records) => records.isNotEmpty ? records.first : {});
+        .asyncMap((records) async {
+          if (records.isEmpty) return {};
+
+          final emergency = records.first;
+          final establishmentId = emergency['establishment_id'];
+
+          String establishmentName = 'Unknown Establishment';
+          String address = 'No address provided';
+          String barangay = 'No barangay provided';
+          String phoneNumber = '';
+
+          if (establishmentId != null) {
+            try {
+              final profile = await _supabase
+                  .from('profiles')
+                  .select('full_name, address, barangay, phone_number')
+                  .eq('id', establishmentId)
+                  .maybeSingle();
+
+              if (profile != null) {
+                establishmentName = profile['full_name'] ?? establishmentName;
+                address = profile['address'] ?? address;
+                barangay = profile['barangay'] ?? barangay;
+                phoneNumber = profile['phone_number'] ?? phoneNumber;
+              }
+            } catch (_) {
+              // Fallback safely on query errors
+            }
+          }
+
+          return {
+            ...emergency,
+            'establishment_name': establishmentName,
+            'address': address,
+            'barangay': barangay,
+            'phone_number': phoneNumber,
+          };
+        });
   }
 
   /// 5. Stream timeline / incident logs for a specific emergency
   static Stream<List<Map<String, dynamic>>> streamIncidentLogs(
     String emergencyId,
   ) {
-    debugPrint(
-      '🔄 [IncidentLogs Stream] Listening for emergency ID: $emergencyId',
-    );
-
     return _supabase
         .from('incident_logs')
         .stream(primaryKey: ['id'])
         .eq('emergency_id', emergencyId)
         .order('created_at', ascending: true)
         .asyncMap((logs) async {
-          debugPrint(
-            '📜 [IncidentLogs Stream] Raw logs received from stream: ${logs.length} items',
-          );
-
-          if (logs.isEmpty) {
-            debugPrint('⚠️ [IncidentLogs Stream] No incident logs found.');
-            return [];
-          }
+          if (logs.isEmpty) return [];
 
           final enrichedLogs = await Future.wait(
             logs.map((log) async {
               final actionById = log['action_by'];
-              final status = log['new_status'] ?? log['status'] ?? 'UNKNOWN';
 
               String actionByName = '';
               String actionByRole = '';
-
-              debugPrint(
-                '🔍 [IncidentLogs Stream] Processing log ID: ${log['id']} | Status: $status \vert{} ActionBy ID:$actionById',
-              );
 
               if (actionById != null && actionById.toString().isNotEmpty) {
                 try {
@@ -216,23 +217,10 @@ class PoliceService {
                   if (profile != null) {
                     actionByName = profile['full_name'] ?? '';
                     actionByRole = profile['role'] ?? '';
-                    debugPrint(
-                      '✅ [IncidentLogs Stream] Profile Matched -> Name: "$actionByName" \vert{} Role: "$actionByRole"',
-                    );
-                  } else {
-                    debugPrint(
-                      '⚠️ [IncidentLogs Stream] Profile record is null in DB for ID: $actionById',
-                    );
                   }
-                } catch (e) {
-                  debugPrint(
-                    '❌ [IncidentLogs Stream] Profile lookup error for ID $actionById: $e',
-                  );
+                } catch (_) {
+                  // Fallback safely on query errors
                 }
-              } else {
-                debugPrint(
-                  'ℹ️ [IncidentLogs Stream] Log entry ID: ${log['id']} has empty/null "action_by"',
-                );
               }
 
               return {
@@ -267,11 +255,9 @@ class PoliceService {
         await launchUrl(googleMapsUri, mode: LaunchMode.externalApplication);
       } else if (await canLaunchUrl(geoUri)) {
         await launchUrl(geoUri);
-      } else {
-        debugPrint('Could not open map application.');
       }
-    } catch (e) {
-      debugPrint('Error launching map: $e');
+    } catch (_) {
+      // Fallback safely if map application fails to launch
     }
   }
 
@@ -319,10 +305,8 @@ class PoliceService {
                     address = profile['address'] ?? address;
                     barangay = profile['barangay'] ?? barangay;
                   }
-                } catch (e) {
-                  debugPrint(
-                    '❌ [History Stream] Profile lookup error for $establishmentId: $e',
-                  );
+                } catch (_) {
+                  // Fallback safely on query errors
                 }
               }
 

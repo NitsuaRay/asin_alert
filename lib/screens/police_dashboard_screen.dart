@@ -6,6 +6,7 @@ import 'package:asin_alert/widgets/police/emergency_card.dart';
 import 'package:asin_alert/widgets/police/emergency_detail_screen.dart';
 import 'package:asin_alert/widgets/police/police_bottom_navigation_bar.dart'; // Import navbar
 import 'package:asin_alert/widgets/police/police_history_screen.dart';
+import 'package:asin_alert/widgets/police/police_settings_screen.dart';
 import 'package:asin_alert/widgets/update_dialog.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -195,12 +196,7 @@ class _PoliceDashboardScreenState extends State<PoliceDashboardScreen> {
       case 1:
         return const PoliceHistoryScreen(); // 👈 Render History Screen Here
       case 2:
-        return const Center(
-          child: Text(
-            'Profile Screen',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-        );
+        return const PoliceSettingsScreen();
       case 0:
       default:
         return _buildDashboardBody();
@@ -284,9 +280,8 @@ class _PoliceDashboardScreenState extends State<PoliceDashboardScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => EmergencyDetailScreen(
-                      emergencyId: alertData['id'].toString(),
-                    ),
+                    builder: (context) =>
+                        EmergencyDetailScreen(alert: alertData),
                   ),
                 );
               },

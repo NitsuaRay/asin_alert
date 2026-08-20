@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService {
@@ -59,5 +60,23 @@ class AuthService {
         .maybeSingle();
 
     return response;
+  }
+
+  // Update User Profile
+  Future<bool> updateUserProfile(Map<String, dynamic> updatedData) async {
+    try {
+      final user = currentUser;
+      if (user == null) return false;
+
+      await _supabase
+          .from('profiles')
+          .update(updatedData)
+          .eq('id', user.id);
+
+      return true;
+    } catch (e) {
+      debugPrint('Error updating profile: $e');
+      return false;
+    }
   }
 }

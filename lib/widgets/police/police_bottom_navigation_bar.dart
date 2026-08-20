@@ -43,7 +43,7 @@ class PoliceBottomNavigationBar extends StatelessWidget {
             children: [
               _buildNavItem(
                 index: 0,
-                icon: Icons.shield_rounded,
+                icon: Icons.shield_outlined,
                 activeIcon: Icons.shield_rounded,
                 label: 'Dashboard',
               ),
@@ -55,9 +55,9 @@ class PoliceBottomNavigationBar extends StatelessWidget {
               ),
               _buildNavItem(
                 index: 2,
-                icon: Icons.person_outline_rounded,
-                activeIcon: Icons.person_rounded,
-                label: 'Profile',
+                icon: Icons.settings_outlined,
+                activeIcon: Icons.settings_rounded,
+                label: 'Settings',
               ),
             ],
           ),

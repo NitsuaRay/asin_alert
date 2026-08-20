@@ -16,16 +16,35 @@ class EmergencyService {
     }
 
     final position = await LocationService.getCurrentLocation();
+    final now = DateTime.now().toUtc().toIso8601String();
 
-    final response = await _supabase.from('emergencies').insert({
-      'establishment_id': user.id,
-      'category': category,
-      'status': 'pending',
-      'latitude': position.latitude,
-      'longitude': position.longitude,
-      'is_silent': isSilent,
-      'notes': isSilent ? 'SILENT ALARM TRIGGERED' : notes,
-    }).select().single();
+    // 1. Insert emergency record
+    final response = await _supabase
+        .from('emergencies')
+        .insert({
+          'establishment_id': user.id,
+          'category': category,
+          'status': 'pending',
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+          'is_silent': isSilent,
+          'notes': isSilent ? 'SILENT ALARM TRIGGERED' : notes,
+          'created_at': now,
+        })
+        .select()
+        .single();
+
+    // 2. Insert initial timeline log for the 'pending' state
+    await _supabase.from('incident_logs').insert({
+      'emergency_id': response['id'],
+      'action_by': user.id,
+      'previous_status': null,
+      'new_status': 'pending',
+      'remarks': isSilent
+          ? 'Silent alarm triggered'
+          : 'Emergency alert triggered',
+      'created_at': now,
+    });
 
     return response;
   }
@@ -79,10 +98,10 @@ class EmergencyService {
     }
 
     // 2. Update 'emergencies' status and record reason
-    await _supabase.from('emergencies').update({
-      'status': 'cancelled',
-      'cancelled_reason': reason,
-    }).eq('id', emergencyId);
+    await _supabase
+        .from('emergencies')
+        .update({'status': 'cancelled', 'cancelled_reason': reason})
+        .eq('id', emergencyId);
 
     // 3. Write record into 'incident_logs' for complete history tracking
     await _supabase.from('incident_logs').insert({
