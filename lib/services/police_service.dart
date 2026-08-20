@@ -56,16 +56,60 @@ class PoliceService {
         .from('emergencies')
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)
-        .map(
-          (records) => records
-              .where(
-                (item) =>
-                    item['status'] == 'pending' ||
-                    item['status'] == 'acknowledged' ||
-                    item['status'] == 'en_route',
-              )
-              .toList(),
-        );
+        .asyncMap((records) async {
+          // 1. Filter active emergencies
+          final activeEmergencies = records.where((item) {
+            final status = item['status'];
+            return status == 'pending' ||
+                status == 'acknowledged' ||
+                status == 'en_route';
+          }).toList();
+
+          if (activeEmergencies.isEmpty) return [];
+
+          // 2. Fetch profile info for each establishment_id
+          final enrichedEmergencies = await Future.wait(
+            activeEmergencies.map((emergency) async {
+              final establishmentId = emergency['establishment_id'];
+
+              String establishmentName = 'Unknown Establishment';
+              String address = 'No address provided';
+              String barangay = 'No barangay provided';
+
+              if (establishmentId != null) {
+                try {
+                  final profile = await _supabase
+                      .from('profiles')
+                      .select(
+                        'full_name, address, barangay',
+                      ) // 👈 Using full_name column
+                      .eq('id', establishmentId)
+                      .maybeSingle();
+
+                  if (profile != null) {
+                    establishmentName =
+                        profile['full_name'] ?? establishmentName;
+                    address = profile['address'] ?? address;
+                    barangay = profile['barangay'] ?? barangay;
+                  }
+                } catch (e) {
+                  debugPrint(
+                    '❌ [Stream] Profile lookup error for $establishmentId: $e',
+                  );
+                }
+              }
+
+              return {
+                ...emergency,
+                'establishment_name': establishmentName,
+                'address': address,
+                'barangay': barangay,
+              };
+            }),
+          );
+
+          return enrichedEmergencies;
+        });
   }
 
   /// 3. Update Incident Status ('acknowledged', 'en_route', 'resolved') + Audit Log & Timestamps
@@ -105,7 +149,8 @@ class PoliceService {
         'action_by': user?.id,
         'previous_status': previousStatus,
         'new_status': newStatus,
-        'remarks': remarks ?? 'Status updated to ${newStatus.replaceAll('_', ' ')}',
+        'remarks':
+            remarks ?? 'Status updated to ${newStatus.replaceAll('_', ' ')}',
         'created_at': now,
       });
 
@@ -126,12 +171,80 @@ class PoliceService {
   }
 
   /// 5. Stream timeline / incident logs for a specific emergency
-  static Stream<List<Map<String, dynamic>>> streamIncidentLogs(String emergencyId) {
+  static Stream<List<Map<String, dynamic>>> streamIncidentLogs(
+    String emergencyId,
+  ) {
+    debugPrint(
+      '🔄 [IncidentLogs Stream] Listening for emergency ID: $emergencyId',
+    );
+
     return _supabase
         .from('incident_logs')
         .stream(primaryKey: ['id'])
         .eq('emergency_id', emergencyId)
-        .order('created_at', ascending: true);
+        .order('created_at', ascending: true)
+        .asyncMap((logs) async {
+          debugPrint(
+            '📜 [IncidentLogs Stream] Raw logs received from stream: ${logs.length} items',
+          );
+
+          if (logs.isEmpty) {
+            debugPrint('⚠️ [IncidentLogs Stream] No incident logs found.');
+            return [];
+          }
+
+          final enrichedLogs = await Future.wait(
+            logs.map((log) async {
+              final actionById = log['action_by'];
+              final status = log['new_status'] ?? log['status'] ?? 'UNKNOWN';
+
+              String actionByName = '';
+              String actionByRole = '';
+
+              debugPrint(
+                '🔍 [IncidentLogs Stream] Processing log ID: ${log['id']} | Status: $status \vert{} ActionBy ID:$actionById',
+              );
+
+              if (actionById != null && actionById.toString().isNotEmpty) {
+                try {
+                  final profile = await _supabase
+                      .from('profiles')
+                      .select('full_name, role')
+                      .eq('id', actionById)
+                      .maybeSingle();
+
+                  if (profile != null) {
+                    actionByName = profile['full_name'] ?? '';
+                    actionByRole = profile['role'] ?? '';
+                    debugPrint(
+                      '✅ [IncidentLogs Stream] Profile Matched -> Name: "$actionByName" \vert{} Role: "$actionByRole"',
+                    );
+                  } else {
+                    debugPrint(
+                      '⚠️ [IncidentLogs Stream] Profile record is null in DB for ID: $actionById',
+                    );
+                  }
+                } catch (e) {
+                  debugPrint(
+                    '❌ [IncidentLogs Stream] Profile lookup error for ID $actionById: $e',
+                  );
+                }
+              } else {
+                debugPrint(
+                  'ℹ️ [IncidentLogs Stream] Log entry ID: ${log['id']} has empty/null "action_by"',
+                );
+              }
+
+              return {
+                ...log,
+                'action_by_name': actionByName,
+                'action_by_role': actionByRole,
+              };
+            }),
+          );
+
+          return enrichedLogs;
+        });
   }
 
   /// 6. Open External Google Maps / Waze Navigation
@@ -159,6 +272,90 @@ class PoliceService {
       }
     } catch (e) {
       debugPrint('Error launching map: $e');
+    }
+  }
+
+  /// Stream Resolved Emergency History enriched with Establishment Profiles
+  static Stream<List<Map<String, dynamic>>> streamEmergencyHistory() {
+    final currentUserId = _supabase.auth.currentUser?.id;
+
+    if (currentUserId == null) {
+      return Stream.value([]);
+    }
+
+    return _supabase
+        .from('emergencies')
+        .stream(primaryKey: ['id'])
+        .order('created_at', ascending: false)
+        .asyncMap((records) async {
+          // 1. Filter resolved emergencies assigned to the responder
+          final resolvedEmergencies = records.where((item) {
+            return item['status'] == 'resolved' &&
+                item['responder_id'] == currentUserId;
+          }).toList();
+
+          if (resolvedEmergencies.isEmpty) return [];
+
+          // 2. Fetch profile info for each establishment_id
+          final enrichedEmergencies = await Future.wait(
+            resolvedEmergencies.map((emergency) async {
+              final establishmentId = emergency['establishment_id'];
+
+              String establishmentName = 'Unknown Establishment';
+              String address = 'No address provided';
+              String barangay = 'No barangay provided';
+
+              if (establishmentId != null) {
+                try {
+                  final profile = await _supabase
+                      .from('profiles')
+                      .select('full_name, address, barangay')
+                      .eq('id', establishmentId)
+                      .maybeSingle();
+
+                  if (profile != null) {
+                    establishmentName =
+                        profile['full_name'] ?? establishmentName;
+                    address = profile['address'] ?? address;
+                    barangay = profile['barangay'] ?? barangay;
+                  }
+                } catch (e) {
+                  debugPrint(
+                    '❌ [History Stream] Profile lookup error for $establishmentId: $e',
+                  );
+                }
+              }
+
+              return {
+                ...emergency,
+                'establishment_name': establishmentName,
+                'address': address,
+                'barangay': barangay,
+              };
+            }),
+          );
+
+          return enrichedEmergencies;
+        });
+  }
+
+  /// Fetches distinct emergency categories from Supabase
+  static Future<List<String>> fetchCategories() async {
+    try {
+      final response = await _supabase.from('emergencies').select('category');
+
+      final set = <String>{};
+      for (final item in response as List) {
+        if (item['category'] != null) {
+          set.add(item['category'].toString().toUpperCase());
+        }
+      }
+
+      final categories = set.toList()..sort();
+      return ['ALL', ...categories];
+    } catch (e) {
+      // Fallback default categories in case of error
+      return ['ALL', 'POLICE', 'MEDICAL', 'FIRE'];
     }
   }
 }

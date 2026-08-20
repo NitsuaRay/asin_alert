@@ -5,6 +5,7 @@ import 'package:asin_alert/widgets/logout_confirmation_dialog.dart';
 import 'package:asin_alert/widgets/police/emergency_card.dart';
 import 'package:asin_alert/widgets/police/emergency_detail_screen.dart';
 import 'package:asin_alert/widgets/police/police_bottom_navigation_bar.dart'; // Import navbar
+import 'package:asin_alert/widgets/police/police_history_screen.dart';
 import 'package:asin_alert/widgets/update_dialog.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -192,12 +193,7 @@ class _PoliceDashboardScreenState extends State<PoliceDashboardScreen> {
   Widget _buildSelectedTabBody() {
     switch (_currentTabIndex) {
       case 1:
-        return const Center(
-          child: Text(
-            'History Screen',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-        );
+        return const PoliceHistoryScreen(); // 👈 Render History Screen Here
       case 2:
         return const Center(
           child: Text(
@@ -244,10 +240,7 @@ class _PoliceDashboardScreenState extends State<PoliceDashboardScreen> {
                   decoration: BoxDecoration(
                     color: Colors.green.shade50,
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.green.shade200,
-                      width: 2,
-                    ),
+                    border: Border.all(color: Colors.green.shade200, width: 2),
                   ),
                   child: Icon(
                     Icons.shield_outlined,
