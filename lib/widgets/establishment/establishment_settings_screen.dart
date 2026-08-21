@@ -1,9 +1,10 @@
 import 'package:asin_alert/constants/app_version_display.dart';
 import 'package:asin_alert/constants/about_app_page.dart';
-import 'package:asin_alert/constants/coming_soon_dialog.dart';
+import 'package:asin_alert/constants/chat_support_hotline_screen.dart';
 import 'package:asin_alert/constants/developer_info_page.dart';
 import 'package:asin_alert/constants/privacy_policy_page.dart';
 import 'package:asin_alert/constants/terms_condition_page.dart';
+import 'package:asin_alert/widgets/establishment/emergency_history_screen.dart';
 import 'package:asin_alert/widgets/establishment/establishment_profile_screen.dart';
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
@@ -77,7 +78,6 @@ class EstablishmentSettingsScreen extends StatelessWidget {
                           ),
                         ),
                         body: const EstablishmentProfileScreen(),
-
                       ),
                     ),
                   );
@@ -92,21 +92,7 @@ class EstablishmentSettingsScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => Scaffold(
-                        appBar: AppBar(
-                          backgroundColor: primaryNavy,
-                          elevation: 0,
-                          iconTheme: const IconThemeData(color: Colors.white),
-                          title: const Text(
-                            'Emergency History',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                      ),
+                      builder: (context) => const EmergencyHistoryScreen(),
                     ),
                   );
                 },
@@ -116,31 +102,21 @@ class EstablishmentSettingsScreen extends StatelessWidget {
             const SizedBox(height: 20),
 
             // Section: Support & Concerns
-            _buildSectionHeader('SUPPORT & CONCERNS'),
+            _buildSectionHeader('SUPPORT & HOTLINES'),
             const SizedBox(height: 8),
             _buildSettingsGroup([
               _buildSettingsTile(
                 icon: Icons.headset_mic_outlined,
                 title: 'Chat Support & Hotline',
                 subtitle: 'Get direct emergency hotline and support access',
-                onTap: () => ComingSoonDialog.show(
-                  context,
-                  title: 'Chat Support & Hotline',
-                  description:
-                      'Direct in-app chat support and emergency hotlines are currently under development and will be available in the upcoming system update.',
-                ),
-              ),
-              _buildDivider(),
-              _buildSettingsTile(
-                icon: Icons.report_problem_outlined,
-                title: 'Report an Issue / Concern',
-                subtitle: 'Submit technical bugs or alert telemetry errors',
-                onTap: () => ComingSoonDialog.show(
-                  context,
-                  title: 'Report an Issue / Concern',
-                  description:
-                      'Automated bug reporting and telemetry error logs submission will be enabled in a future release.',
-                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ChatSupportHotlineScreen(),
+                    ),
+                  );
+                },
               ),
             ]),
 

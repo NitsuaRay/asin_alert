@@ -1,3 +1,4 @@
+import 'package:asin_alert/screens/auth_gate.dart';
 import 'package:flutter/material.dart';
 import 'package:asin_alert/services/auth_service.dart';
 
@@ -9,12 +10,9 @@ class LogoutConfirmationDialog extends StatelessWidget {
   static const Color primaryNavy = Color(0xFF0F172A);
   static const Color accentGold = Color(0xFFD97706);
 
-  const LogoutConfirmationDialog({
-    super.key,
-    this.accountType = 'account',
-  });
+  const LogoutConfirmationDialog({super.key, this.accountType = 'account'});
 
-  /// Helper static method to trigger the dialog & handle sign-out
+  /// Helper static method to trigger the dialog & handle sign-out workflow seamlessly
   static Future<void> show(
     BuildContext context, {
     String accountType = 'account',
@@ -22,16 +20,60 @@ class LogoutConfirmationDialog extends StatelessWidget {
     final bool? confirm = await showDialog<bool>(
       context: context,
       barrierDismissible: true,
-      builder: (dialogContext) => LogoutConfirmationDialog(
-        accountType: accountType,
-      ),
+      builder: (dialogContext) =>
+          LogoutConfirmationDialog(accountType: accountType),
     );
 
-    // If the user clicked "Log Out", execute sign out.
-    // AuthGate will automatically detect this and redirect to LoginScreen!
-    if (confirm == true) {
+    if (confirm == true && context.mounted) {
       try {
+        // 1. Show loading feedback
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: accentGold,
+                  ),
+                ),
+                SizedBox(width: 12),
+                Text('Signing out...'),
+              ],
+            ),
+            duration: Duration(seconds: 1),
+            backgroundColor: primaryNavy,
+          ),
+        );
+
+        // 2. Perform sign out
         await AuthService().signOut();
+
+        // 3. Show success message if context is still active
+        if (context.mounted) {
+          Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (context) => const AuthGate(),
+            ), // Point to your AuthGate or LoginScreen
+            (route) => false,
+          );
+          ScaffoldMessenger.of(context).clearSnackBars();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle_rounded, color: accentGold, size: 20),
+                  SizedBox(width: 12),
+                  Text('Signed out successfully.'),
+                ],
+              ),
+              duration: Duration(seconds: 2),
+              backgroundColor: primaryNavy,
+            ),
+          );
+        }
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -48,9 +90,7 @@ class LogoutConfirmationDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       elevation: 10,
       backgroundColor: Colors.white,
       child: Padding(
@@ -133,9 +173,7 @@ class LogoutConfirmationDialog extends StatelessWidget {
                     ),
                     child: const Text(
                       'Log Out',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),

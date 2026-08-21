@@ -122,4 +122,41 @@ class EmergencyService {
       'remarks': reason,
     });
   }
+
+  /// Stream emergency history including responder_id
+  static Stream<List<Map<String, dynamic>>> streamEmergencyHistory() {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return const Stream.empty();
+
+    return _supabase
+        .from('emergencies')
+        .stream(primaryKey: ['id'])
+        .eq('establishment_id', user.id)
+        .order('created_at', ascending: false)
+        .map(
+          (data) => data.where((item) {
+            final status = item['status']?.toString().toLowerCase();
+            return status == 'resolved' || status == 'cancelled';
+          }).toList(),
+        );
+  }
+
+  /// Fetches profile information (full_name) for a list of responder IDs
+  static Future<Map<String, String>> getResponderNames(
+    List<String> responderIds,
+  ) async {
+    if (responderIds.isEmpty) return {};
+
+    final response = await _supabase
+        .from('profiles')
+        .select('id, full_name')
+        .inFilter('id', responderIds);
+
+    final Map<String, String> nameMap = {};
+    for (var profile in response) {
+      nameMap[profile['id'].toString()] =
+          profile['full_name']?.toString() ?? 'Unknown Responder';
+    }
+    return nameMap;
+  }
 }

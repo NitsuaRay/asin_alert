@@ -4,6 +4,7 @@ import '../services/auth_service.dart';
 import '../widgets/admin/safety_and_incidents_tab.dart';
 import '../widgets/admin/user_management_tab.dart';
 import '../widgets/admin/ota_release_tab.dart';
+import '../widgets/admin/support_tickets_tab.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -19,7 +20,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -59,10 +60,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           indicatorWeight: 3,
           labelColor: Colors.amber,
           unselectedLabelColor: Colors.white70,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           tabs: const [
             Tab(icon: Icon(Icons.shield_rounded), text: 'Safety Hub'),
             Tab(icon: Icon(Icons.manage_accounts_rounded), text: 'Users & Roles'),
+            Tab(icon: Icon(Icons.support_agent_rounded), text: 'Support Tickets'),
             Tab(icon: Icon(Icons.system_security_update_rounded), text: 'OTA Releases'),
           ],
         ),
@@ -72,6 +74,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         children: const [
           SafetyAndIncidentsTab(),
           UserManagementTab(),
+          SupportTicketsTab(),
           OtaReleaseTab(),
         ],
       ),
